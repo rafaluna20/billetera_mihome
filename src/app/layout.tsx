@@ -29,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className="dark antialiased">
-      <body className={`${outfit.variable} font-sans min-h-full flex flex-col bg-slate-950 text-slate-50`}>
+      <body className={`${outfit.variable} font-sans font-light min-h-full flex flex-col bg-slate-950 text-slate-50`}>
         <PwaRegister />
         {children}
       </body>
