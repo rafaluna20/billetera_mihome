@@ -40,14 +40,14 @@ export default function BalanceCard({ balance, accountNumber }: BalanceCardProps
         {hidden ? (
           <div className="flex items-center gap-1.5">
             <span className="text-white/70 text-lg font-semibold">S/</span>
-            <span className="text-white text-[36px] font-black tracking-tight leading-none select-none">
+            <span className="text-white text-[36px] font-bold tracking-tight leading-none select-none">
               •••••
             </span>
           </div>
         ) : (
           <>
             <span className="text-white/70 text-lg font-semibold">S/</span>
-            <span className="text-white text-[36px] font-black tracking-tight leading-none">
+            <span className="text-white text-[36px] font-bold tracking-tight leading-none">
               {formattedBalance}
             </span>
           </>

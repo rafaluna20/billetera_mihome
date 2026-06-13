@@ -32,7 +32,7 @@ export default async function InvestmentsScreen() {
           <p className="text-white/70 text-[13px] font-medium mb-1">Total activo + Saldo libre</p>
           <div className="flex items-baseline gap-1">
             <span className="text-white/70 text-2xl font-medium">S/</span>
-            <span className="text-white text-[44px] font-black tracking-tight leading-none">
+            <span className="text-white text-[44px] font-bold tracking-tight leading-none">
               {(summary.active_capital + summary.platform_balance).toLocaleString("es-PE", { minimumFractionDigits: 2 })}
             </span>
           </div>
