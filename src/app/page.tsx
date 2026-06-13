@@ -144,26 +144,10 @@ export default function LoginScreen() {
           </>
         )}
 
-        {/* Status Bar */}
-        <div className="relative z-20 flex justify-between items-center px-6 pt-3 text-white text-sm font-semibold">
-          <span>12:30</span>
-          <div className="flex gap-1.5 items-center">
-            <div className="flex gap-0.5 items-end h-3">
-              {[6, 8, 10, 12].map((h, i) => (
-                <div key={i} className="w-1 bg-white rounded-sm" style={{ height: `${h}px` }} />
-              ))}
-            </div>
-            <div className="ml-1 w-6 h-3 border border-white/50 rounded-[3px] relative flex items-center p-[1px]">
-              <div className="bg-white w-full h-full rounded-[1px]" />
-              <div className="absolute -right-[3px] bg-white/50 w-[2px] h-1.5 rounded-r-sm" />
-            </div>
-          </div>
-        </div>
-
         {/* ─── PANTALLA: LOGIN INICIAL (REGISTRO) ─── */}
         {step === "register" && (
           <div className="flex-1 flex flex-col h-full z-10">
-            <div className="flex-none px-6 pt-6 pb-6 flex flex-col items-center">
+            <div className="flex-none px-6 pt-10 pb-6 flex flex-col items-center">
               <div className="w-[120px] h-[120px] bg-white rounded-3xl p-3 shadow-lg mb-4 flex items-center justify-center">
                 <QRCode value={qrPayload} size={100} fgColor="#4a1862" />
               </div>
@@ -237,7 +221,7 @@ export default function LoginScreen() {
             )}
 
             {/* QR Section */}
-            <div className="flex-none px-6 pt-6 pb-6 flex flex-col items-center">
+            <div className="flex-none px-6 pt-10 pb-6 flex flex-col items-center">
               <div className="bg-white rounded-[1.5rem] p-3 shadow-lg flex flex-col items-center relative">
                 <div className="w-[140px] h-[140px] flex items-center justify-center">
                   <QRCode value={qrPayload} size={130} fgColor="#4a1862" />

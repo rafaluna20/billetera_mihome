@@ -74,24 +74,8 @@ export default async function HomeScreen() {
         <div className="absolute top-[-60px] right-[-60px] w-64 h-64 bg-[#9b2dba]/25 rounded-full blur-3xl z-0" />
         <div className="absolute top-[120px] left-[-50px] w-48 h-48 bg-[#00b5ad]/15 rounded-full blur-3xl z-0" />
 
-        {/* Status Bar */}
-        <div className="relative z-20 flex justify-between items-center px-6 pt-3 text-white text-sm font-semibold">
-          <span>8:01</span>
-          <div className="flex gap-1.5 items-center">
-            <div className="flex gap-0.5 items-end h-3">
-              {[6, 8, 10, 12].map((h, i) => (
-                <div key={i} className="w-1 bg-white rounded-sm" style={{ height: `${h}px` }} />
-              ))}
-            </div>
-            <div className="ml-1 w-6 h-3 border border-white/50 rounded-[3px] relative flex items-center p-[1px]">
-              <div className="bg-white w-full h-full rounded-[1px]" />
-              <div className="absolute -right-[3px] bg-white/50 w-[2px] h-1.5 rounded-r-sm" />
-            </div>
-          </div>
-        </div>
-
         {/* Header Nav */}
-        <div className="relative z-10 flex items-center justify-between px-6 pt-3 pb-2">
+        <div className="relative z-10 flex items-center justify-between px-6 pt-8 pb-2">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/10 rounded-2xl border border-white/20 flex items-center justify-center">
               <span className="text-white font-black text-[10px] leading-none text-center">Mi<br/>H</span>

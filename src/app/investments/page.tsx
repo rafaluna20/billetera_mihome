@@ -18,24 +18,8 @@ export default async function InvestmentsScreen() {
         <div className="absolute top-0 left-0 right-0 h-[350px] bg-gradient-to-b from-[#813a96] to-[#681984] z-0" />
         <div className="absolute top-[-50px] left-[-50px] w-64 h-64 bg-[#00b5ad]/20 rounded-full blur-3xl z-0 pointer-events-none" />
 
-        {/* Status Bar */}
-        <div className="relative z-20 flex justify-between items-center px-6 pt-3 text-white text-sm font-semibold">
-          <span>8:01</span>
-          <div className="flex gap-1.5 items-center">
-            <div className="flex gap-0.5 items-end h-3">
-              {[6, 8, 10, 12].map((h, i) => (
-                <div key={i} className="w-1 bg-white rounded-sm" style={{ height: `${h}px` }} />
-              ))}
-            </div>
-            <div className="ml-1 w-6 h-3 border border-white/50 rounded-[3px] relative flex items-center p-[1px]">
-              <div className="bg-white w-full h-full rounded-[1px]" />
-              <div className="absolute -right-[3px] bg-white/50 w-[2px] h-1.5 rounded-r-sm" />
-            </div>
-          </div>
-        </div>
-
         {/* Header */}
-        <div className="relative z-10 flex items-center justify-between px-6 pt-4 pb-2">
+        <div className="relative z-10 flex items-center justify-between px-6 pt-8 pb-2">
           <h1 className="text-white font-bold text-[22px]">Patrimonio</h1>
           <button className="w-9 h-9 bg-white/10 border border-white/15 rounded-xl flex items-center justify-center relative">
             <Bell size={16} className="text-white" />
