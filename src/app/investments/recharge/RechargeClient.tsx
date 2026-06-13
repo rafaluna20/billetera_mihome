@@ -33,8 +33,8 @@ export default function RechargeClient({ walletBalance, accountNumber }: Recharg
   }
 
   const handleConfirmAmount = () => {
-    if (isNaN(numAmount) || numAmount <= 0) {
-      alert("Ingresa un monto válido")
+    if (isNaN(numAmount) || numAmount < 10) {
+      alert("El monto mínimo es S/ 10.00")
       return
     }
     if (numAmount > walletBalance) {
@@ -64,6 +64,7 @@ export default function RechargeClient({ walletBalance, accountNumber }: Recharg
   }
 
   const isInsufficient = numAmount > walletBalance && numAmount > 0
+  const isBelowMinimum = numAmount > 0 && numAmount < 10
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-900 sm:p-4">
@@ -114,6 +115,11 @@ export default function RechargeClient({ walletBalance, accountNumber }: Recharg
                   ⚠️ Saldo insuficiente
                 </p>
               )}
+              {isBelowMinimum && !isInsufficient && (
+                <p className="text-red-300 text-[12px] mt-1 font-semibold">
+                  ⚠️ El monto mínimo es S/ 10.00
+                </p>
+              )}
             </div>
 
             {/* Quick amount shortcuts */}
@@ -152,7 +158,7 @@ export default function RechargeClient({ walletBalance, accountNumber }: Recharg
 
               <button
                 onClick={handleConfirmAmount}
-                disabled={!amount || numAmount <= 0 || isInsufficient}
+                disabled={!amount || numAmount < 10 || isInsufficient}
                 className="w-full h-[54px] bg-[#00b5ad] hover:bg-[#009c95] text-white font-bold text-[16px] rounded-2xl shadow-[0_4px_16px_rgba(0,181,173,0.35)] disabled:opacity-50 disabled:shadow-none transition-all active:scale-[0.98]"
               >
                 Continuar
