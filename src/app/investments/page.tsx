@@ -79,10 +79,10 @@ export default async function InvestmentsScreen() {
             
             {/* Quick Actions */}
             <div className="grid grid-cols-2 gap-3 mt-4 mb-6">
-              <button className="h-[54px] bg-[#f0f9f8] border border-[#d1f0ef] rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform">
+              <Link href="/investments/withdraw" className="h-[54px] bg-[#f0f9f8] border border-[#d1f0ef] rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform">
                 <ArrowDownLeft size={18} className="text-[#00b5ad]" />
                 <span className="text-[#00b5ad] font-bold text-[14px]">Retirar a Billetera</span>
-              </button>
+              </Link>
               <Link href="/investments/recharge" className="h-[54px] bg-[#681984] hover:bg-[#5a1570] shadow-md rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform">
                 <Plus size={18} className="text-white" />
                 <span className="text-white font-bold text-[14px]">Nueva Inversión</span>

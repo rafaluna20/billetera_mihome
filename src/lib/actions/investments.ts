@@ -292,3 +292,103 @@ export async function rechargeInvestment(amount: number): Promise<{ success: boo
     };
   }
 }
+
+export async function withdrawToWallet(amount: number): Promise<{ success: boolean, reference: string, newBalance?: number, error?: string }> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("wallet_token")?.value;
+  const userEmail = cookieStore.get("wallet_user_email")?.value;
+
+  if (!token || !userEmail) {
+    return { success: false, reference: "", error: "No autenticado. Inicia sesión de nuevo." };
+  }
+
+  try {
+    // ── PASO 1: Obtener el UID de Firebase del usuario ──
+    let firebaseUid: string | null = null;
+    let userCollection = "usuarios";
+
+    const usersSnapshot = await db.collection("usuarios").where("email", "==", userEmail).get();
+    if (!usersSnapshot.empty) {
+      firebaseUid = usersSnapshot.docs[0].id;
+      userCollection = "usuarios";
+    } else {
+      const usersEnSnapshot = await db.collection("users").where("email", "==", userEmail).get();
+      if (!usersEnSnapshot.empty) {
+        firebaseUid = usersEnSnapshot.docs[0].id;
+        userCollection = "users";
+      }
+    }
+
+    if (!firebaseUid) {
+      return { success: false, reference: "", error: "Tu cuenta no está vinculada a la plataforma de inversiones." };
+    }
+
+    // ── PASO 2: Verificar saldo disponible en Firebase ──
+    const userDoc = await db.collection(userCollection).doc(firebaseUid).get();
+    const platformBalance = userDoc.data()?.saldo || 0;
+
+    if (amount > platformBalance) {
+      return { success: false, reference: "", error: `Saldo insuficiente en plataforma. Disponible: S/ ${platformBalance.toFixed(2)}` };
+    }
+
+    // ── PASO 3: Acreditar saldo en Odoo wallet via /api/wallet/platform-withdraw ──
+    const { fetchFromOdoo } = await import("@/lib/api");
+
+    const odooResponse = await fetchFromOdoo("/api/wallet/platform-withdraw", {
+      method: "POST",
+      token,
+      body: JSON.stringify({
+        params: {
+          amount,
+          firebase_uid: firebaseUid,
+          platform: "inversiones_pro",
+        }
+      })
+    });
+
+    const odooResult = odooResponse.result;
+
+    if (!odooResult || !odooResult.success) {
+      return {
+        success: false,
+        reference: "",
+        error: odooResult?.error || "Error al acreditar saldo en la billetera."
+      };
+    }
+
+    const transactionId = odooResult.transaction_id;
+    const newOdooBalance = odooResult.new_balance;
+
+    // ── PASO 4: Debitar saldo en Firebase ──
+    const { FieldValue } = await import("firebase-admin/firestore");
+
+    await db.collection(userCollection).doc(firebaseUid).update({
+      saldo: FieldValue.increment(-amount)
+    });
+
+    // ── PASO 5: Crear registro en historial ──
+    await db.collection("plataforma_retiros").add({
+      firebase_uid: firebaseUid,
+      amount_debited: amount,
+      odoo_transaction_id: transactionId,
+      destination: "billetera_odoo",
+      fecha: new Date(),
+      status: "completed",
+      email: userEmail,
+    });
+
+    return {
+      success: true,
+      reference: transactionId,
+      newBalance: newOdooBalance,
+    };
+
+  } catch (err: any) {
+    console.error("Error en withdrawToWallet:", err);
+    return {
+      success: false,
+      reference: "",
+      error: err?.message || "Error inesperado al procesar el retiro."
+    };
+  }
+}
