@@ -30,6 +30,13 @@ export async function login(username: string, password: string) {
         path: "/",
         maxAge: 60 * 60 * 24 * 7,
       });
+      cookieStore.set("wallet_user_email", username, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 7,
+      });
       
       return { success: true };
     } else {
