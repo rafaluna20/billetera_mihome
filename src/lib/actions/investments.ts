@@ -34,6 +34,7 @@ export async function getInvestmentSummary(): Promise<InvestmentSummary> {
   if (!userEmail) {
       return {
         total_capital: 0,
+        active_capital: 0,
         total_gains: 0,
         monthly_gains: 0,
         next_payment_amount: 0,
@@ -66,6 +67,7 @@ export async function getInvestmentSummary(): Promise<InvestmentSummary> {
       console.warn("Usuario no encontrado en Firebase Inversiones para el email:", userEmail);
       return {
         total_capital: 0,
+        active_capital: 0,
         total_gains: 0,
         monthly_gains: 0,
         next_payment_amount: 0,

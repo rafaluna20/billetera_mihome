@@ -11,7 +11,7 @@ export interface WalletContact {
   initials?: string
 }
 
-export async function searchWalletUsers(query: string, searchType: "phone" | "email" | "account" | "all" = "all"): Promise<WalletContact[]> {
+export async function searchWalletUsers(query: string, searchType: "phone" | "email" | "account" | "account_number" | "all" = "all"): Promise<WalletContact[]> {
   const token = await getAuthToken()
   if (!token || token === "MOCK_TOKEN_DEMO") {
     // Mock contacts for demo
@@ -24,15 +24,16 @@ export async function searchWalletUsers(query: string, searchType: "phone" | "em
     return mock.filter(c => {
       if (searchType === "phone") return c.phone.includes(query)
       if (searchType === "email") return c.email.includes(query)
-      if (searchType === "account") return c.account_number.includes(query.toUpperCase())
+      if (searchType === "account" || searchType === "account_number") return c.account_number.includes(query.toUpperCase())
       return c.name.toLowerCase().includes(query.toLowerCase()) || c.phone.includes(query)
     })
   }
 
   try {
+    const odooSearchType = searchType === "account_number" ? "account" : searchType
     const response = await fetchFromOdoo("/api/wallet/users/search", {
       method: "POST",
-      body: JSON.stringify({ params: { query: query || "a", search_type: searchType } }),
+      body: JSON.stringify({ params: { query: query || "a", search_type: odooSearchType } }),
       token,
     })
     const result = response.result
