@@ -18,9 +18,9 @@ import {
   Zap,
   ArrowDownLeft,
   ArrowUpRight,
-  Eye,
 } from "lucide-react"
 import Link from "next/link"
+import BalanceCard from "@/components/BalanceCard"
 
 import { getWalletAccount, getWalletTransactions } from "@/lib/actions/wallet"
 import { getInvestmentSummary } from "@/lib/actions/investments"
@@ -100,28 +100,10 @@ export default async function HomeScreen() {
         </div>
 
         {/* Balance Card */}
-        <div className="relative z-10 mx-5 mt-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-white/60 text-[11px] uppercase tracking-widest font-medium">Saldo disponible</p>
-            <div className="flex items-center gap-1.5 bg-[#00b5ad]/20 border border-[#00b5ad]/30 px-2.5 py-1 rounded-full">
-              <div className="w-1.5 h-1.5 bg-[#00b5ad] rounded-full animate-pulse" />
-              <span className="text-[#00e8df] text-[10px] font-semibold">Activa</span>
-            </div>
-          </div>
-          <div className="flex items-baseline gap-1.5 mt-1">
-            <span className="text-white/70 text-lg font-semibold">S/</span>
-            <span className="text-white text-[36px] font-black tracking-tight leading-none">
-              {account.balance?.toLocaleString("es-PE", { minimumFractionDigits: 2 }) || "0.00"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between mt-3">
-            <p className="text-white/50 text-[11px]">N° {account.number || "WAL-XXXX"}</p>
-            <button className="flex items-center gap-1 text-[#00e8df] text-[12px] font-medium">
-              <Eye size={12} />
-              Ver detalle
-            </button>
-          </div>
-        </div>
+        <BalanceCard
+          balance={account.balance ?? 0}
+          accountNumber={account.number || ""}
+        />
 
         {/* Investment Teaser Widget */}
         <Link href="/investments" className="relative z-10 mx-5 mt-3 flex items-center justify-between bg-gradient-to-r from-[#813a96] to-[#681984] border border-white/10 rounded-2xl p-3 px-4 shadow-lg active:scale-[0.98] transition-transform">
