@@ -138,7 +138,7 @@ export default async function InvestmentsScreen() {
               </div>
               <div className="flex-1">
                 <p className="text-gray-900 font-bold text-[14px]">Notificación</p>
-                <p className="text-gray-500 text-[12px]">{summary.next_payment_date.includes("Sin") || summary.next_payment_date.includes("Email") || summary.next_payment_date.includes("Desconectado") ? summary.next_payment_date : `${formatMoney(summary.next_payment_amount)} el ${summary.next_payment_date}`}</p>
+                <p className="text-gray-500 text-[12px]">{summary.next_payment_date.includes("Sin") || summary.next_payment_date.includes("Email") || summary.next_payment_date.includes("Desconectado") || summary.next_payment_date.includes("Error") ? summary.next_payment_date : `${formatMoney(summary.next_payment_amount)} el ${summary.next_payment_date}`}</p>
               </div>
             </div>
 

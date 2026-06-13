@@ -185,7 +185,7 @@ export async function getInvestmentSummary(): Promise<InvestmentSummary> {
       active_projects: contracts.filter(c => c.status === 'active').length,
       contracts: contracts
     };
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error fetching from Firebase:", err);
     return {
       total_capital: 0,
@@ -193,7 +193,7 @@ export async function getInvestmentSummary(): Promise<InvestmentSummary> {
       total_gains: 0,
       monthly_gains: 0,
       next_payment_amount: 0,
-      next_payment_date: "Error de conexión",
+      next_payment_date: `Error de conexión: ${err?.message || err}`,
       platform_balance: 0,
       active_projects: 0,
       contracts: []
