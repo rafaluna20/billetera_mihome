@@ -15,17 +15,32 @@ export async function fetchFromOdoo(endpoint: string, options: FetchOptions = {}
     defaultHeaders["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${ODOO_URL}${endpoint}`, {
-    headers: {
-      ...defaultHeaders,
-      ...headers,
-    },
-    ...rest,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-  if (!response.ok) {
-    throw new Error(`Odoo API Error: ${response.status} ${response.statusText}`);
+  try {
+    const response = await fetch(`${ODOO_URL}${endpoint}`, {
+      headers: {
+        ...defaultHeaders,
+        ...headers,
+      },
+      signal: controller.signal,
+      ...rest,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Odoo API Error: ${response.status} ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Odoo API Timeout: El servidor tardó demasiado en responder');
+    }
+    throw error;
   }
 
-  return response.json();
 }
