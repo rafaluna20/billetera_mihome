@@ -342,6 +342,7 @@ export async function withdrawToWallet(amount: number): Promise<{ success: boole
           amount,
           firebase_uid: firebaseUid,
           platform: "inversiones_pro",
+          idempotency_key: `WITHDRAW-${firebaseUid}-${Date.now()}`,
         }
       })
     });
