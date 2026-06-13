@@ -1,7 +1,6 @@
 "use server"
 
 import { cookies } from "next/headers"
-import { cache } from "react"
 import { adminDb as db } from "@/lib/firebase/adminConfig"
 import { getWalletAccount } from "./wallet"
 
@@ -28,7 +27,7 @@ export type InvestmentSummary = {
   contracts: InvestmentContract[]
 }
 
-export const getInvestmentSummary = cache(async (): Promise<InvestmentSummary> => {
+export async function getInvestmentSummary(): Promise<InvestmentSummary> {
   const cookieStore = await cookies();
   const userEmail = cookieStore.get("wallet_user_email")?.value;
   const firebaseUid = cookieStore.get("wallet_firebase_uid")?.value;
@@ -209,7 +208,7 @@ export const getInvestmentSummary = cache(async (): Promise<InvestmentSummary> =
       contracts: []
     };
   }
-});
+}
 
 export async function rechargeInvestment(amount: number): Promise<{ success: boolean, reference: string, newBalance?: number, error?: string }> {
   const cookieStore = await cookies();

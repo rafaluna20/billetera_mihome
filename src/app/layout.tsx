@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Outfit } from "next/font/google";
 import "./globals.css";
 import { PwaRegister } from "@/components/PwaRegister";
 
-const inter = Inter({
+const outfit = Outfit({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-outfit",
 });
 
 export const viewport: Viewport = {
@@ -29,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className="dark antialiased">
-      <body className={`${inter.variable} font-sans min-h-full flex flex-col bg-slate-950 text-slate-50`}>
+      <body className={`${outfit.variable} font-sans min-h-full flex flex-col bg-slate-950 text-slate-50`}>
         <PwaRegister />
         {children}
       </body>

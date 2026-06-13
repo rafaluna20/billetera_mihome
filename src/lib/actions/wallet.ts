@@ -1,10 +1,9 @@
 "use server";
 
-import { cache } from "react";
 import { fetchFromOdoo } from "../api";
 import { getAuthToken, logout } from "./auth";
 
-export const getWalletAccount = cache(async () => {
+export async function getWalletAccount() {
   const token = await getAuthToken();
   if (!token) return null;
 
@@ -37,9 +36,9 @@ export const getWalletAccount = cache(async () => {
     console.error("Fetch Account Error:", error);
     return null;
   }
-});
+}
 
-export const getWalletTransactions = cache(async (limit = 10, offset = 0) => {
+export async function getWalletTransactions(limit = 10, offset = 0) {
   const token = await getAuthToken();
   if (!token) return [];
 
@@ -68,4 +67,4 @@ export const getWalletTransactions = cache(async (limit = 10, offset = 0) => {
     console.error("Fetch Transactions Error:", error);
     return [];
   }
-});
+}
