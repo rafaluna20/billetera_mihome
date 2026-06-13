@@ -2,16 +2,13 @@ import {
   Bell,
   ChevronRight,
   CreditCard,
-  FileText,
   Headset,
   LayoutGrid,
   LogOut,
-  Percent,
   Plus,
   QrCode,
   RefreshCcw,
   Send,
-  ShieldCheck,
   ShoppingBag,
   Smartphone,
   Store,
@@ -34,7 +31,7 @@ function getTransactionIcon(tx: any) {
   const desc = (tx.description || tx.transaction_type_label || "").toLowerCase()
   if (desc.includes("recarga") || desc.includes("recibid")) return ArrowDownLeft
   if (desc.includes("transfer") || desc.includes("envio") || desc.includes("envío")) return ArrowUpRight
-  if (desc.includes("celular") || desc.includes("movistar") || desc.includes("claro")) return Smartphone
+  if (desc.includes("celular") || desc.includes("movistar") || desc.includes("claro")) return Smartphone // Kept for transaction icon classification
   if (desc.includes("compra") || desc.includes("pago") || desc.includes("tienda")) return ShoppingBag
   return Zap
 }
@@ -140,52 +137,40 @@ export default async function HomeScreen() {
           <ChevronRight size={18} className="text-white/50" />
         </Link>
 
-        {/* Quick Actions */}
+        {/* Quick Actions — single row: Yapear, QR, Tienda, Más */}
         <div className="relative z-10 px-5 mt-4">
           <div className="grid grid-cols-4 gap-3">
-            {[
-              { label: "QR", icon: QrCode, bg: "bg-white/15 border border-white/25", shadow: "", href: null },
-              { label: "Celular", icon: Smartphone, bg: "bg-white/15 border border-white/25", shadow: "", href: null },
-              { label: "Servicios", icon: FileText, bg: "bg-white/15 border border-white/25", shadow: "", href: null },
-            ].map((a) => (
-              <div key={a.label} className="flex flex-col items-center gap-1.5">
-                <button className={`w-full aspect-square rounded-2xl ${a.bg} ${a.shadow} flex items-center justify-center active:scale-95 transition-transform`}>
-                  <a.icon size={21} className="text-white" />
-                </button>
-                <span className="text-white/70 text-[11px] font-medium">{a.label}</span>
-              </div>
-            ))}
-            {/* Yapear — links to /yapear */}
-            <div className="flex flex-col items-center gap-1.5 order-first">
-              <Link href="/yapear" className={`w-full aspect-square rounded-2xl bg-[#00b5ad] shadow-[0_4px_16px_rgba(0,181,173,0.4)] flex items-center justify-center active:scale-95 transition-transform`}>
+            {/* Yapear */}
+            <div className="flex flex-col items-center gap-1.5">
+              <Link href="/yapear" className="w-full aspect-square rounded-2xl bg-[#00b5ad] shadow-[0_4px_16px_rgba(0,181,173,0.4)] flex items-center justify-center active:scale-95 transition-transform">
                 <Send size={21} className="text-white" />
               </Link>
               <span className="text-white/70 text-[11px] font-medium">Yapear</span>
             </div>
-          </div>
-        </div>
 
-        {/* Services Grid */}
-        <div className="relative z-10 px-5 mt-4">
-          <div className="grid grid-cols-4 gap-3">
-            {[
-              { label: "Promos", icon: Percent, badge: "Locura!" },
-              { label: "Tienda", icon: Store, badge: null },
-              { label: "Seguros", icon: ShieldCheck, badge: null },
-              { label: "Más", icon: Plus, alt: true },
-            ].map((s) => (
-              <div key={s.label} className="flex flex-col items-center gap-1.5 relative">
-                {s.badge && (
-                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-[#ffc600] text-[#4a1862] text-[9px] font-bold px-1.5 py-0.5 rounded z-10 shadow-sm whitespace-nowrap">
-                    {s.badge}
-                  </div>
-                )}
-                <button className={`w-full aspect-square rounded-2xl flex items-center justify-center active:scale-95 transition-transform ${s.alt ? "bg-[#813a96] border border-[#9b51b0]" : "bg-white/90"}`}>
-                  <s.icon size={21} className={s.alt ? "text-white" : "text-[#681984]"} />
-                </button>
-                <span className="text-white/70 text-[11px] font-medium">{s.label}</span>
-              </div>
-            ))}
+            {/* QR */}
+            <div className="flex flex-col items-center gap-1.5">
+              <button className="w-full aspect-square rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center active:scale-95 transition-transform">
+                <QrCode size={21} className="text-white" />
+              </button>
+              <span className="text-white/70 text-[11px] font-medium">QR</span>
+            </div>
+
+            {/* Tienda */}
+            <div className="flex flex-col items-center gap-1.5">
+              <button className="w-full aspect-square rounded-2xl bg-white/90 flex items-center justify-center active:scale-95 transition-transform">
+                <Store size={21} className="text-[#681984]" />
+              </button>
+              <span className="text-white/70 text-[11px] font-medium">Tienda</span>
+            </div>
+
+            {/* Más */}
+            <div className="flex flex-col items-center gap-1.5">
+              <button className="w-full aspect-square rounded-2xl bg-[#813a96] border border-[#9b51b0] flex items-center justify-center active:scale-95 transition-transform">
+                <Plus size={21} className="text-white" />
+              </button>
+              <span className="text-white/70 text-[11px] font-medium">Más</span>
+            </div>
           </div>
         </div>
 
