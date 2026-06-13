@@ -1,6 +1,7 @@
 "use server"
 
 import { cookies } from "next/headers"
+import { cache } from "react"
 import { adminDb as db } from "@/lib/firebase/adminConfig"
 import { getWalletAccount } from "./wallet"
 
@@ -27,9 +28,11 @@ export type InvestmentSummary = {
   contracts: InvestmentContract[]
 }
 
-export async function getInvestmentSummary(): Promise<InvestmentSummary> {
+export const getInvestmentSummary = cache(async (): Promise<InvestmentSummary> => {
   const cookieStore = await cookies();
   const userEmail = cookieStore.get("wallet_user_email")?.value;
+  const firebaseUid = cookieStore.get("wallet_firebase_uid")?.value;
+  const firebaseCollection = cookieStore.get("wallet_firebase_collection")?.value;
   
   if (!userEmail) {
       return {
@@ -46,20 +49,27 @@ export async function getInvestmentSummary(): Promise<InvestmentSummary> {
     }
 
   try {
-    let userUid = null;
+    let userUid = firebaseUid || null;
     let platformBalance = 0;
     
-    // 1. Fetch user by email
-    const usersSnapshot = await db.collection("usuarios").where("email", "==", userEmail).get();
-    
-    if (!usersSnapshot.empty) {
-      userUid = usersSnapshot.docs[0].id;
-      platformBalance = usersSnapshot.docs[0].data().saldo || 0;
+    // 1. Fetch user platform balance (O(1) si hay cookie, sino fallback O(N))
+    if (firebaseUid && firebaseCollection) {
+      const userDoc = await db.collection(firebaseCollection).doc(firebaseUid).get();
+      if (userDoc.exists) {
+        platformBalance = userDoc.data()?.saldo || 0;
+      }
     } else {
-      const usersEnSnapshot = await db.collection("users").where("email", "==", userEmail).get();
-      if (!usersEnSnapshot.empty) {
-        userUid = usersEnSnapshot.docs[0].id;
-        platformBalance = usersEnSnapshot.docs[0].data().saldo || 0;
+      // Fallback
+      const usersSnapshot = await db.collection("usuarios").where("email", "==", userEmail).get();
+      if (!usersSnapshot.empty) {
+        userUid = usersSnapshot.docs[0].id;
+        platformBalance = usersSnapshot.docs[0].data().saldo || 0;
+      } else {
+        const usersEnSnapshot = await db.collection("users").where("email", "==", userEmail).get();
+        if (!usersEnSnapshot.empty) {
+          userUid = usersEnSnapshot.docs[0].id;
+          platformBalance = usersEnSnapshot.docs[0].data().saldo || 0;
+        }
       }
     }
 
@@ -199,12 +209,14 @@ export async function getInvestmentSummary(): Promise<InvestmentSummary> {
       contracts: []
     };
   }
-}
+});
 
 export async function rechargeInvestment(amount: number): Promise<{ success: boolean, reference: string, newBalance?: number, error?: string }> {
   const cookieStore = await cookies();
   const token = cookieStore.get("wallet_token")?.value;
   const userEmail = cookieStore.get("wallet_user_email")?.value;
+  const cookieFirebaseUid = cookieStore.get("wallet_firebase_uid")?.value;
+  const cookieFirebaseCollection = cookieStore.get("wallet_firebase_collection")?.value;
 
   if (!token || !userEmail) {
     return { success: false, reference: "", error: "No autenticado. Inicia sesión de nuevo." };
@@ -212,15 +224,21 @@ export async function rechargeInvestment(amount: number): Promise<{ success: boo
 
   try {
     // ── PASO 1: Obtener el UID de Firebase del usuario ──
-    let firebaseUid: string | null = null;
+    let firebaseUid: string | null = cookieFirebaseUid || null;
+    let userCollection = cookieFirebaseCollection || "usuarios";
 
-    const usersSnapshot = await db.collection("usuarios").where("email", "==", userEmail).get();
-    if (!usersSnapshot.empty) {
-      firebaseUid = usersSnapshot.docs[0].id;
-    } else {
-      const usersEnSnapshot = await db.collection("users").where("email", "==", userEmail).get();
-      if (!usersEnSnapshot.empty) {
-        firebaseUid = usersEnSnapshot.docs[0].id;
+    if (!firebaseUid) {
+      // Fallback
+      const usersSnapshot = await db.collection("usuarios").where("email", "==", userEmail).get();
+      if (!usersSnapshot.empty) {
+        firebaseUid = usersSnapshot.docs[0].id;
+        userCollection = "usuarios";
+      } else {
+        const usersEnSnapshot = await db.collection("users").where("email", "==", userEmail).get();
+        if (!usersEnSnapshot.empty) {
+          firebaseUid = usersEnSnapshot.docs[0].id;
+          userCollection = "users";
+        }
       }
     }
 
@@ -259,9 +277,6 @@ export async function rechargeInvestment(amount: number): Promise<{ success: boo
     // ── PASO 3: Acreditar saldo en Firebase (usuarios.saldo) ──
     const { FieldValue } = await import("firebase-admin/firestore");
 
-    // Determinar la colección correcta
-    const userCollection = usersSnapshot.empty ? "users" : "usuarios";
-    
     await db.collection(userCollection).doc(firebaseUid).update({
       saldo: FieldValue.increment(amount)
     });
@@ -297,6 +312,8 @@ export async function withdrawToWallet(amount: number): Promise<{ success: boole
   const cookieStore = await cookies();
   const token = cookieStore.get("wallet_token")?.value;
   const userEmail = cookieStore.get("wallet_user_email")?.value;
+  const cookieFirebaseUid = cookieStore.get("wallet_firebase_uid")?.value;
+  const cookieFirebaseCollection = cookieStore.get("wallet_firebase_collection")?.value;
 
   if (!token || !userEmail) {
     return { success: false, reference: "", error: "No autenticado. Inicia sesión de nuevo." };
@@ -304,18 +321,21 @@ export async function withdrawToWallet(amount: number): Promise<{ success: boole
 
   try {
     // ── PASO 1: Obtener el UID de Firebase del usuario ──
-    let firebaseUid: string | null = null;
-    let userCollection = "usuarios";
+    let firebaseUid: string | null = cookieFirebaseUid || null;
+    let userCollection = cookieFirebaseCollection || "usuarios";
 
-    const usersSnapshot = await db.collection("usuarios").where("email", "==", userEmail).get();
-    if (!usersSnapshot.empty) {
-      firebaseUid = usersSnapshot.docs[0].id;
-      userCollection = "usuarios";
-    } else {
-      const usersEnSnapshot = await db.collection("users").where("email", "==", userEmail).get();
-      if (!usersEnSnapshot.empty) {
-        firebaseUid = usersEnSnapshot.docs[0].id;
-        userCollection = "users";
+    if (!firebaseUid) {
+      // Fallback
+      const usersSnapshot = await db.collection("usuarios").where("email", "==", userEmail).get();
+      if (!usersSnapshot.empty) {
+        firebaseUid = usersSnapshot.docs[0].id;
+        userCollection = "usuarios";
+      } else {
+        const usersEnSnapshot = await db.collection("users").where("email", "==", userEmail).get();
+        if (!usersEnSnapshot.empty) {
+          firebaseUid = usersEnSnapshot.docs[0].id;
+          userCollection = "users";
+        }
       }
     }
 

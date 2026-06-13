@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { fetchFromOdoo } from "../api";
 import { redirect } from "next/navigation";
+import { adminDb as db } from "@/lib/firebase/adminConfig";
 
 export async function login(username: string, password: string) {
   try {
@@ -37,6 +38,44 @@ export async function login(username: string, password: string) {
         path: "/",
         maxAge: 60 * 60 * 24 * 7,
       });
+
+      // ── Optimizacion Rendimiento: Guardar Firebase UID en cookie ──
+      try {
+        let firebaseUid = null;
+        let firebaseCollection = "usuarios";
+        
+        const usersSnapshot = await db.collection("usuarios").where("email", "==", username).get();
+        if (!usersSnapshot.empty) {
+          firebaseUid = usersSnapshot.docs[0].id;
+          firebaseCollection = "usuarios";
+        } else {
+          const usersEnSnapshot = await db.collection("users").where("email", "==", username).get();
+          if (!usersEnSnapshot.empty) {
+            firebaseUid = usersEnSnapshot.docs[0].id;
+            firebaseCollection = "users";
+          }
+        }
+
+        if (firebaseUid) {
+          cookieStore.set("wallet_firebase_uid", firebaseUid, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+            maxAge: 60 * 60 * 24 * 7,
+          });
+          cookieStore.set("wallet_firebase_collection", firebaseCollection, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+            maxAge: 60 * 60 * 24 * 7,
+          });
+        }
+      } catch (fbError) {
+        console.error("Error al buscar UID de Firebase en login:", fbError);
+        // No bloqueamos el login si falla Firebase, ya que el email ya está en cookie como respaldo
+      }
       
       return { success: true };
     } else {
@@ -51,6 +90,9 @@ export async function login(username: string, password: string) {
 export async function logout() {
   const cookieStore = await cookies();
   cookieStore.delete("wallet_token");
+  cookieStore.delete("wallet_user_email");
+  cookieStore.delete("wallet_firebase_uid");
+  cookieStore.delete("wallet_firebase_collection");
   redirect("/");
 }
 
