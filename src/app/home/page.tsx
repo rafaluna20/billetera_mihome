@@ -184,7 +184,7 @@ export default async function HomeScreen() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-gray-700 text-[13px] font-semibold truncate">
-                        {tx.description || tx.transaction_type_label || "Transacción"}
+                        {tx.partner_name || tx.recipient_name || tx.description || tx.transaction_type_label || "Transacción"}
                       </p>
                       <p className="text-gray-400 text-[11px] mt-0.5">{formatDate(tx.date)}</p>
                     </div>
