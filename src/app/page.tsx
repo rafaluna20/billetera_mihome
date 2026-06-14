@@ -4,7 +4,14 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import QRCode from "react-qr-code"
 import { Lock, Smartphone, Headset, Fingerprint, Delete, LogIn, Loader2, Eye, EyeOff } from "lucide-react"
-import { login } from "@/lib/actions/auth"
+import { login, checkSession } from "@/lib/actions/auth"
+
+async function hashPin(pin: string): Promise<string> {
+  const msgUint8 = new TextEncoder().encode(pin);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 type AuthStep = "loading" | "register" | "create_pin" | "pin_login"
 
@@ -28,19 +35,31 @@ export default function LoginScreen() {
 
   // Initialize and check saved credentials
   useEffect(() => {
-    const savedPin = localStorage.getItem("yape_pin")
-    const savedEmail = localStorage.getItem("yape_email")
-    const savedPwd = localStorage.getItem("yape_pwd")
+    async function initAuth() {
+      // Limpiar rastro de versiones anteriores vulnerables
+      localStorage.removeItem("yape_pin")
+      localStorage.removeItem("yape_pwd")
+      
+      const savedPinHash = localStorage.getItem("yape_pin_hash")
+      const savedEmail = localStorage.getItem("yape_email")
 
-    if (savedPin && savedEmail && savedPwd) {
-      setExpectedPin(savedPin)
-      setUsername(savedEmail)
-      setPassword(savedPwd)
-      setStep("pin_login")
-      shuffleKeypad()
-    } else {
+      if (savedPinHash && savedEmail) {
+        // Verificar criptográficamente la sesión con el backend
+        const session = await checkSession()
+        if (session.active) {
+          setExpectedPin(savedPinHash)
+          setUsername(savedEmail)
+          setStep("pin_login")
+          shuffleKeypad()
+          return
+        }
+      }
+      
+      // Si no hay sesión válida o localstorage, forzar login full
       setStep("register")
     }
+    
+    initAuth()
   }, [])
 
   const shuffleKeypad = () => {
@@ -89,24 +108,18 @@ export default function LoginScreen() {
       
       // Auto-submit when 6 digits reached
       if (newPin.length === 6) {
+        const hashedPin = await hashPin(newPin);
         if (step === "create_pin") {
-          // Guardar todo en localStorage
-          localStorage.setItem("yape_pin", newPin)
+          // Guardar hash en lugar de password y pin crudo
+          localStorage.setItem("yape_pin_hash", hashedPin)
           localStorage.setItem("yape_email", username)
-          localStorage.setItem("yape_pwd", password)
           window.location.href = "/home"
         } else if (step === "pin_login") {
-          // Validar PIN y hacer login real
-          if (newPin === expectedPin) {
+          // Validar PIN contra el hash
+          if (hashedPin === expectedPin) {
             setLoading(true)
-            const res = await login(username, password)
-            if (res.success) {
-              window.location.href = "/home"
-            } else {
-              setLoading(false)
-              setPin("")
-              setError("Error de conexión, intenta de nuevo")
-            }
+            // No llamamos a login() aquí porque checkSession() ya validó que tenemos la cookie HTTP-Only viva
+            window.location.href = "/home"
           } else {
             setError("Clave incorrecta")
             setPin("")
@@ -117,9 +130,10 @@ export default function LoginScreen() {
   }
 
   const resetAccount = () => {
-    localStorage.removeItem("yape_pin")
+    localStorage.removeItem("yape_pin_hash")
     localStorage.removeItem("yape_email")
-    localStorage.removeItem("yape_pwd")
+    localStorage.removeItem("yape_pin") // Legacy cleanup
+    localStorage.removeItem("yape_pwd") // Legacy cleanup
     setUsername("")
     setPassword("")
     setPin("")

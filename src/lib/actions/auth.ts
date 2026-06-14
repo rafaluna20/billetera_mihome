@@ -75,7 +75,8 @@ export async function login(username: string, password: string) {
         }
       } catch (fbError) {
         console.error("Error al buscar UID de Firebase en login:", fbError);
-        // No bloqueamos el login si falla Firebase, ya que el email ya está en cookie como respaldo
+        // [MODIFICADO] Falla de seguridad / consistencia. Si no hay Firebase, no podemos operar saldos.
+        return { success: false, error: "Tu cuenta no está vinculada correctamente a la plataforma de inversiones (Firebase)." };
       }
       
       revalidatePath("/", "layout");
@@ -102,4 +103,16 @@ export async function logout() {
 export async function getAuthToken() {
   const cookieStore = await cookies();
   return cookieStore.get("wallet_token")?.value;
+}
+
+export async function checkSession() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("wallet_token")?.value;
+  const firebaseUid = cookieStore.get("wallet_firebase_uid")?.value;
+  const email = cookieStore.get("wallet_user_email")?.value;
+  
+  if (token && firebaseUid && email) {
+    return { active: true, email: email };
+  }
+  return { active: false };
 }

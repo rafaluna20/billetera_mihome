@@ -4,7 +4,6 @@ import {
   CreditCard,
   Headset,
   LayoutGrid,
-  LogOut,
   Plus,
   QrCode,
   RefreshCcw,
@@ -21,10 +20,10 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import BalanceCard from "@/components/BalanceCard"
+import { LogoutButton } from "@/components/LogoutButton"
 
 import { getWalletAccount, getWalletTransactions } from "@/lib/actions/wallet"
 import { getInvestmentSummary } from "@/lib/actions/investments"
-import { logout } from "@/lib/actions/auth"
 import { redirect } from "next/navigation"
 
 function getTransactionIcon(tx: any) {
@@ -91,11 +90,7 @@ export default async function HomeScreen() {
               <Bell size={16} className="text-white" />
               <div className="absolute top-1 right-1 w-2 h-2 bg-[#ffc600] rounded-full border border-[#681984]" />
             </button>
-            <form action={logout}>
-              <button type="submit" className="w-9 h-9 bg-white/10 border border-white/15 rounded-xl flex items-center justify-center">
-                <LogOut size={14} className="text-white/80" />
-              </button>
-            </form>
+            <LogoutButton />
           </div>
         </div>
 
