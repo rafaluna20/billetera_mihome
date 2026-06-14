@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { fetchFromOdoo } from "../api";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { adminDb as db } from "@/lib/firebase/adminConfig";
 
 export async function login(username: string, password: string) {
@@ -77,6 +78,7 @@ export async function login(username: string, password: string) {
         // No bloqueamos el login si falla Firebase, ya que el email ya está en cookie como respaldo
       }
       
+      revalidatePath("/", "layout");
       return { success: true };
     } else {
       return { success: false, error: result?.error || "Credenciales inválidas en Odoo" };
@@ -93,6 +95,7 @@ export async function logout() {
   cookieStore.delete("wallet_user_email");
   cookieStore.delete("wallet_firebase_uid");
   cookieStore.delete("wallet_firebase_collection");
+  revalidatePath("/", "layout");
   redirect("/");
 }
 
