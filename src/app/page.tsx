@@ -94,14 +94,14 @@ export default function LoginScreen() {
           localStorage.setItem("yape_pin", newPin)
           localStorage.setItem("yape_email", username)
           localStorage.setItem("yape_pwd", password)
-          router.push("/home")
+          window.location.href = "/home"
         } else if (step === "pin_login") {
           // Validar PIN y hacer login real
           if (newPin === expectedPin) {
             setLoading(true)
             const res = await login(username, password)
             if (res.success) {
-              router.push("/home")
+              window.location.href = "/home"
             } else {
               setLoading(false)
               setPin("")
