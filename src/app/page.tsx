@@ -5,60 +5,60 @@ import { useRouter } from "next/navigation"
 import QRCode from "react-qr-code"
 import { Lock, Smartphone, Headset, Fingerprint, Delete, LogIn, Loader2, Eye, EyeOff } from "lucide-react"
 import { login, checkSession } from "@/lib/actions/auth"
+import { crearPin, verificarPin, pedirCodigoPin, restablecerPin } from "@/lib/actions/pin"
 
-async function hashPin(pin: string): Promise<string> {
-  const msgUint8 = new TextEncoder().encode(pin);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
+type AuthStep = "loading" | "register" | "create_pin" | "pin_login" | "reset_pin"
 
-type AuthStep = "loading" | "register" | "create_pin" | "pin_login"
+const PIN_LEN = 6
 
 export default function LoginScreen() {
   const router = useRouter()
   const [step, setStep] = useState<AuthStep>("loading")
-  
+
   // Registration state
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  
-  // PIN state
+
+  // PIN state (el PIN se valida SIEMPRE en el servidor; aquí no se guarda ni su hash)
   const [pin, setPin] = useState("")
-  const [expectedPin, setExpectedPin] = useState("")
+  const [firstPin, setFirstPin] = useState("")
   const [keypadNums, setKeypadNums] = useState<number[]>([])
   const [bottomNum, setBottomNum] = useState<number>(0)
-  
+
+  // Recuperación de la clave (código por correo + contraseña + clave nueva)
+  const [resetCode, setResetCode] = useState("")
+  const [resetPassword, setResetPassword] = useState("")
+  const [resetPin, setResetPin] = useState("")
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [info, setInfo] = useState("")
 
   // Initialize and check saved credentials
   useEffect(() => {
     async function initAuth() {
-      // Limpiar rastro de versiones anteriores vulnerables
+      // Limpiar rastro de versiones anteriores: el PIN ya no se guarda en el dispositivo
       localStorage.removeItem("yape_pin")
       localStorage.removeItem("yape_pwd")
-      
-      const savedPinHash = localStorage.getItem("yape_pin_hash")
-      const savedEmail = localStorage.getItem("yape_email")
+      localStorage.removeItem("yape_pin_hash")
 
-      if (savedPinHash && savedEmail) {
-        // Verificar criptográficamente la sesión con el backend
+      const savedEmail = localStorage.getItem("yape_email")
+      if (savedEmail) {
+        // Sesión viva (cookie HTTP-Only) y dispositivo ya registrado: se pide la clave al servidor
         const session = await checkSession()
         if (session.active) {
-          setExpectedPin(savedPinHash)
           setUsername(savedEmail)
           setStep("pin_login")
           shuffleKeypad()
           return
         }
       }
-      
-      // Si no hay sesión válida o localstorage, forzar login full
+
+      // Si no hay sesión válida, forzar login completo
       setStep("register")
     }
-    
+
     initAuth()
   }, [])
 
@@ -73,6 +73,15 @@ export default function LoginScreen() {
     setBottomNum(bottom)
   }
 
+  const mensajeDePin = (res: { code?: string; error?: string; intentosRestantes?: number }) => {
+    if (res.code === "pin_invalido") {
+      return res.intentosRestantes !== undefined
+        ? `Clave incorrecta. Te quedan ${res.intentosRestantes} intento(s).`
+        : "Clave incorrecta."
+    }
+    return res.error || "No se pudo validar la clave"
+  }
+
   // ─── STEP 1: LOGIN (Register device) ───────────────────────────────────────
   const handleRegisterLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,14 +91,22 @@ export default function LoginScreen() {
     }
     setLoading(true)
     setError("")
-    
+    setInfo("")
+
     // Validar con Odoo
     const res = await login(username, password)
     setLoading(false)
     if (res.success) {
-      // Guardar temporalmente y pedir PIN
-      setStep("create_pin")
-      shuffleKeypad()
+      if (res.hasPin) {
+        // Ya tiene clave en el servidor: este dispositivo queda registrado
+        localStorage.setItem("yape_email", username)
+        setPassword("")
+        window.location.href = "/home"
+      } else {
+        // Primera vez: crear la clave (se confirma con la contraseña recién ingresada)
+        setStep("create_pin")
+        shuffleKeypad()
+      }
     } else {
       setError(res.error || "Credenciales incorrectas")
     }
@@ -97,35 +114,101 @@ export default function LoginScreen() {
 
   // ─── STEP 2 & 3: PIN PAD LOGIC ─────────────────────────────────────────────
   const handlePinPress = async (val: string | number) => {
+    if (loading) return
     if (val === "DEL") {
       setPin(prev => prev.slice(0, -1))
       setError("")
       return
     }
-    if (pin.length < 6) {
-      const newPin = pin + val
-      setPin(newPin)
-      
-      // Auto-submit when 6 digits reached
-      if (newPin.length === 6) {
-        const hashedPin = await hashPin(newPin);
-        if (step === "create_pin") {
-          // Guardar hash en lugar de password y pin crudo
-          localStorage.setItem("yape_pin_hash", hashedPin)
-          localStorage.setItem("yape_email", username)
-          window.location.href = "/home"
-        } else if (step === "pin_login") {
-          // Validar PIN contra el hash
-          if (hashedPin === expectedPin) {
-            setLoading(true)
-            // No llamamos a login() aquí porque checkSession() ya validó que tenemos la cookie HTTP-Only viva
-            window.location.href = "/home"
-          } else {
-            setError("Clave incorrecta")
-            setPin("")
-          }
-        }
+    if (pin.length >= PIN_LEN) return
+    const newPin = pin + val
+    setPin(newPin)
+    if (newPin.length < PIN_LEN) return
+
+    if (step === "create_pin") {
+      if (!firstPin) {
+        // Primera entrada: pedir que la repita
+        setFirstPin(newPin)
+        setPin("")
+        setError("")
+        setInfo("Repite tu clave para confirmarla")
+        shuffleKeypad()
+        return
       }
+      if (newPin !== firstPin) {
+        setFirstPin("")
+        setPin("")
+        setInfo("")
+        setError("Las claves no coinciden. Empieza de nuevo.")
+        shuffleKeypad()
+        return
+      }
+      setLoading(true)
+      const res = await crearPin(password, newPin)
+      if (res.success) {
+        localStorage.setItem("yape_email", username)
+        setPassword("")
+        window.location.href = "/home"
+        return
+      }
+      setLoading(false)
+      setFirstPin("")
+      setPin("")
+      setInfo("")
+      setError(res.error || "No se pudo crear la clave")
+      if (res.code === "password_incorrecta" || res.code === "no_autorizado") setStep("register")
+      else shuffleKeypad()
+    } else if (step === "pin_login") {
+      setLoading(true)
+      const res = await verificarPin(newPin)
+      if (res.success) {
+        window.location.href = "/home"
+        return
+      }
+      setLoading(false)
+      setPin("")
+      setError(mensajeDePin(res))
+      if (res.code === "pin_no_configurado" || res.code === "no_autorizado") {
+        resetAccount()
+        return
+      }
+      shuffleKeypad()
+    }
+  }
+
+  // ─── OLVIDÉ MI CLAVE: código por correo + contraseña + clave nueva ─────────
+  const startResetPin = async () => {
+    setError("")
+    setInfo("")
+    setResetCode("")
+    setResetPassword("")
+    setResetPin("")
+    setStep("reset_pin")
+    const res = await pedirCodigoPin()
+    if (res.success) setInfo("Te enviamos un código a tu correo.")
+    else setError(res.error || "No se pudo enviar el código")
+  }
+
+  const handleResetPin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!resetCode || !resetPassword || resetPin.length < 4) {
+      setError("Completa el código, tu contraseña y la clave nueva (4 a 6 dígitos).")
+      return
+    }
+    setLoading(true)
+    setError("")
+    const res = await restablecerPin({ codigo: resetCode, password: resetPassword, pinNuevo: resetPin })
+    setLoading(false)
+    if (res.success) {
+      setResetCode("")
+      setResetPassword("")
+      setResetPin("")
+      setPin("")
+      setStep("pin_login")
+      shuffleKeypad()
+      setInfo("Tu clave se actualizó. Ingresa con la nueva.")
+    } else {
+      setError(res.error || "No se pudo restablecer la clave")
     }
   }
 
@@ -137,7 +220,8 @@ export default function LoginScreen() {
     setUsername("")
     setPassword("")
     setPin("")
-    setError("")
+    setFirstPin("")
+    setInfo("")
     setStep("register")
   }
 
@@ -222,6 +306,46 @@ export default function LoginScreen() {
           </div>
         )}
 
+        {/* ─── PANTALLA: OLVIDÉ MI CLAVE ─── */}
+        {step === "reset_pin" && (
+          <div className="flex-1 flex flex-col h-full z-10">
+            <div className="flex-none px-6 pt-10 pb-6 flex flex-col items-center">
+              <p className="text-white font-bold text-lg">Recuperar tu clave</p>
+            </div>
+            <div className="flex-1 bg-white rounded-t-[2.5rem] px-7 pt-8 pb-10 flex flex-col shadow-[0_-20px_60px_rgba(0,0,0,0.15)] mt-auto">
+              <p className="text-gray-400 text-[13px] mb-5">Ingresa el código que enviamos a tu correo, tu contraseña y tu clave nueva.</p>
+              <form onSubmit={handleResetPin} className="flex flex-col gap-4 flex-1">
+                <input
+                  inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={resetCode}
+                  onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ""))}
+                  placeholder="Código del correo"
+                  className="h-[52px] rounded-2xl border-2 border-[#f0eaf6] bg-[#faf8fc] px-4 text-gray-900 text-[15px] focus:border-[#681984] focus:outline-none placeholder:text-gray-400"
+                />
+                <input
+                  type="password" autoComplete="current-password" value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  placeholder="Tu contraseña"
+                  className="h-[52px] rounded-2xl border-2 border-[#f0eaf6] bg-[#faf8fc] px-4 text-gray-900 text-[15px] focus:border-[#681984] focus:outline-none placeholder:text-gray-400"
+                />
+                <input
+                  type="password" inputMode="numeric" autoComplete="off" maxLength={6} value={resetPin}
+                  onChange={(e) => setResetPin(e.target.value.replace(/\D/g, ""))}
+                  placeholder="Clave nueva (4 a 6 dígitos)"
+                  className="h-[52px] rounded-2xl border-2 border-[#f0eaf6] bg-[#faf8fc] px-4 text-gray-900 text-[15px] focus:border-[#681984] focus:outline-none placeholder:text-gray-400"
+                />
+                {info && <p className="text-[#00b5ad] text-[13px] font-medium">{info}</p>}
+                {error && <p className="text-red-500 text-[13px]">{error}</p>}
+                <button type="submit" disabled={loading} className="mt-auto h-[54px] w-full bg-[#681984] text-white font-bold text-[16px] rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg disabled:opacity-60">
+                  {loading ? <Loader2 size={19} className="animate-spin" /> : "Restablecer clave"}
+                </button>
+                <button type="button" onClick={() => { setError(""); setInfo(""); setStep("pin_login"); shuffleKeypad() }} className="text-gray-500 text-[13px] font-medium">
+                  Volver
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* ─── PANTALLA: PIN PAD (INGRESO O CREACIÓN) ─── */}
         {(step === "pin_login" || step === "create_pin") && (
           <div className="flex-1 flex flex-col h-full z-10 relative">
@@ -249,7 +373,7 @@ export default function LoginScreen() {
 
             {/* Action Buttons (Olvido de clave, Cambio de número, Ayuda) */}
             <div className="flex justify-center gap-6 px-6 pb-6">
-              <button onClick={resetAccount} className="flex flex-col items-center gap-2">
+              <button onClick={step === "create_pin" ? resetAccount : startResetPin} className="flex flex-col items-center gap-2">
                 <div className="w-[52px] h-[52px] bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm">
                   <Lock size={22} className="text-white" />
                 </div>
@@ -285,8 +409,9 @@ export default function LoginScreen() {
             {/* Bottom Sheet — Keypad */}
             <div className="flex-1 bg-white rounded-t-[2.5rem] px-7 pt-8 pb-8 flex flex-col shadow-[0_-20px_60px_rgba(0,0,0,0.15)] mt-auto">
               <h2 className="text-[#4a1862] text-[19px] font-bold text-center mb-4">
-                {step === "create_pin" ? "Crea tu clave de 6 dígitos" : "Ingresa con tu clave"}
+                {step === "create_pin" ? (firstPin ? "Repite tu clave" : "Crea tu clave de 6 dígitos") : "Ingresa con tu clave"}
               </h2>
+              {info && <p className="text-[#00b5ad] text-[13px] text-center font-medium -mt-2 mb-3">{info}</p>}
 
               {/* PIN Dots */}
               <div className="flex justify-center gap-3 mb-6">

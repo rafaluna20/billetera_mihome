@@ -13,8 +13,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "MiHome Wallet | InversionesPro",
-  description: "Tu billetera digital para inversiones inmobiliarias",
+  title: "MiHome Wallet",
+  description: "Tu billetera digital",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

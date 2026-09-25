@@ -197,6 +197,9 @@ export default function YapearPage() {
   const [loading, setLoading] = useState(false)
   const [txResult, setTxResult] = useState<any>(null)
   const [errorMsg, setErrorMsg] = useState("")
+  // PIN de operaciones: lo valida el servidor en cada transferencia; aquí no se guarda
+  const [pin, setPin] = useState("")
+  const [pinError, setPinError] = useState("")
 
   const selectRecipient = (r: Recipient) => {
     setRecipient(r)
@@ -233,8 +236,11 @@ export default function YapearPage() {
     if (!recipient || !amount) return
     const num = parseFloat(amount)
     if (isNaN(num) || num <= 0) { setErrorMsg("Monto inválido"); return }
+    if (!/^\d{4,6}$/.test(pin)) { setPinError("Ingresa tu clave (4 a 6 dígitos) para confirmar."); return }
+    setPinError("")
     setLoading(true)
     const res = await transferFunds({
+      pin,
       destinationEmail: recipient.email,
       destinationAccountNumber: recipient.account_number,
       destinationPhone: recipient.phone,
@@ -242,7 +248,18 @@ export default function YapearPage() {
       description: description || `Yapeo a ${recipient.name}`,
     })
     setLoading(false)
+    setPin("")
     if (res.success) { setTxResult(res.transaction); setStep("success") }
+    else if (res.code?.startsWith("pin_")) {
+      // Error de clave: se queda en la confirmación para reintentar (el servidor cuenta los intentos)
+      setPinError(
+        res.code === "pin_no_configurado"
+          ? "Aún no tienes clave. Cierra sesión e ingresa de nuevo para crearla."
+          : res.code === "pin_invalido" && res.intentosRestantes !== undefined
+            ? `Clave incorrecta. Te quedan ${res.intentosRestantes} intento(s).`
+            : res.error || "Clave incorrecta"
+      )
+    }
     else { setErrorMsg(res.error || "Error en la transferencia"); setStep("error") }
   }
 
@@ -587,8 +604,19 @@ export default function YapearPage() {
               </div>
             </div>
 
+            <div className="mb-4">
+              <label className="text-[11px] font-bold text-[#4a1862]/70 uppercase ml-1">Tu clave</label>
+              <input
+                type="password" inputMode="numeric" autoComplete="off" maxLength={6} value={pin}
+                onChange={(e) => { setPin(e.target.value.replace(/\D/g, "")); setPinError("") }}
+                placeholder="••••••"
+                className="mt-1.5 w-full h-[52px] rounded-2xl border-2 border-[#f0eaf6] bg-[#faf8fc] px-4 text-gray-900 text-[18px] tracking-[0.4em] text-center focus:border-[#681984] focus:outline-none placeholder:text-gray-400"
+              />
+              {pinError && <p className="text-red-500 text-[13px] mt-2 text-center">{pinError}</p>}
+            </div>
+
             <div className="flex gap-3 mt-auto">
-              <button onClick={() => setStep("menu")}
+              <button onClick={() => { setPin(""); setPinError(""); setStep("menu") }}
                 className="flex-1 h-[54px] border-2 border-gray-200 text-gray-500 font-semibold rounded-2xl flex items-center justify-center gap-2">
                 <X size={17} /> Cancelar
               </button>

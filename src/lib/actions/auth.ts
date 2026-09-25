@@ -4,7 +4,6 @@ import { cookies } from "next/headers";
 import { fetchFromOdoo } from "../api";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { adminDb as db } from "@/lib/firebase/adminConfig";
 
 export async function login(username: string, password: string) {
   try {
@@ -18,8 +17,6 @@ export async function login(username: string, password: string) {
         }
       })
     });
-
-    console.log("Odoo login response:", response);
 
     const result = response.result;
 
@@ -40,47 +37,8 @@ export async function login(username: string, password: string) {
         maxAge: 60 * 60 * 24 * 7,
       });
 
-      // ── Optimizacion Rendimiento: Guardar Firebase UID en cookie ──
-      try {
-        let firebaseUid = null;
-        let firebaseCollection = "usuarios";
-        
-        const usersSnapshot = await db.collection("usuarios").where("email", "==", username).get();
-        if (!usersSnapshot.empty) {
-          firebaseUid = usersSnapshot.docs[0].id;
-          firebaseCollection = "usuarios";
-        } else {
-          const usersEnSnapshot = await db.collection("users").where("email", "==", username).get();
-          if (!usersEnSnapshot.empty) {
-            firebaseUid = usersEnSnapshot.docs[0].id;
-            firebaseCollection = "users";
-          }
-        }
-
-        if (firebaseUid) {
-          cookieStore.set("wallet_firebase_uid", firebaseUid, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            path: "/",
-            maxAge: 60 * 60 * 24 * 7,
-          });
-          cookieStore.set("wallet_firebase_collection", firebaseCollection, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            path: "/",
-            maxAge: 60 * 60 * 24 * 7,
-          });
-        }
-      } catch (fbError) {
-        console.error("Error al buscar UID de Firebase en login:", fbError);
-        // [MODIFICADO] Falla de seguridad / consistencia. Si no hay Firebase, no podemos operar saldos.
-        return { success: false, error: "Tu cuenta no está vinculada correctamente a la plataforma de inversiones (Firebase)." };
-      }
-      
       revalidatePath("/", "layout");
-      return { success: true };
+      return { success: true, hasPin: Boolean(result.wallet?.has_pin) };
     } else {
       return { success: false, error: result?.error || "Credenciales inválidas en Odoo" };
     }
@@ -108,10 +66,9 @@ export async function getAuthToken() {
 export async function checkSession() {
   const cookieStore = await cookies();
   const token = cookieStore.get("wallet_token")?.value;
-  const firebaseUid = cookieStore.get("wallet_firebase_uid")?.value;
   const email = cookieStore.get("wallet_user_email")?.value;
   
-  if (token && firebaseUid && email) {
+  if (token && email) {
     return { active: true, email: email };
   }
   return { active: false };

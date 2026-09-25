@@ -11,7 +11,6 @@ import {
   ShoppingBag,
   Smartphone,
   Store,
-  TrendingUp,
   User,
   Wallet,
   Zap,
@@ -23,7 +22,6 @@ import BalanceCard from "@/components/BalanceCard"
 import { LogoutButton } from "@/components/LogoutButton"
 
 import { getWalletAccount, getWalletTransactions } from "@/lib/actions/wallet"
-import { getInvestmentSummary } from "@/lib/actions/investments"
 import { redirect } from "next/navigation"
 
 function getTransactionIcon(tx: any) {
@@ -40,7 +38,6 @@ export default async function HomeScreen() {
   if (!account) redirect("/")
 
   const transactions = await getWalletTransactions(8, 0)
-  const summary = await getInvestmentSummary()
 
   const formatSoles = (amount: number) =>
     new Intl.NumberFormat("es-PE", {
@@ -100,20 +97,6 @@ export default async function HomeScreen() {
           accountNumber={account.number || ""}
         />
 
-        {/* Investment Teaser Widget */}
-        <Link href="/investments" className="relative z-10 mx-5 mt-3 flex items-center justify-between bg-gradient-to-r from-[#813a96] to-[#681984] border border-white/10 rounded-2xl p-3 px-4 shadow-lg active:scale-[0.98] transition-transform">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#ffc600]/20 flex items-center justify-center border border-[#ffc600]/30">
-              <TrendingUp size={16} className="text-[#ffc600]" />
-            </div>
-            <div>
-              <p className="text-white text-[12px] font-medium leading-tight">Inversiones Mihome S.A.C.</p>
-              <p className="text-[#00e8df] font-bold text-[14px] leading-tight">+{formatSoles(summary.monthly_gains)} <span className="text-white/60 text-[10px] font-normal">este mes</span></p>
-            </div>
-          </div>
-          <ChevronRight size={18} className="text-white/50" />
-        </Link>
-
         {/* Quick Actions — single row: Yapear, QR, Tienda, Más */}
         <div className="relative z-10 px-5 mt-4">
           <div className="grid grid-cols-4 gap-3">
@@ -141,12 +124,12 @@ export default async function HomeScreen() {
               <span className="text-white/70 text-[11px] font-medium">Tienda</span>
             </div>
 
-            {/* Más */}
+            {/* Depositar en una plataforma */}
             <div className="flex flex-col items-center gap-1.5">
-              <button className="w-full aspect-square rounded-2xl bg-[#813a96] border border-[#9b51b0] flex items-center justify-center active:scale-95 transition-transform">
+              <Link href="/depositar" className="w-full aspect-square rounded-2xl bg-[#813a96] border border-[#9b51b0] flex items-center justify-center active:scale-95 transition-transform">
                 <Plus size={21} className="text-white" />
-              </button>
-              <span className="text-white/70 text-[11px] font-medium">Más</span>
+              </Link>
+              <span className="text-white/70 text-[11px] font-medium">Depositar</span>
             </div>
           </div>
         </div>
@@ -201,7 +184,6 @@ export default async function HomeScreen() {
           <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 px-4 pb-6 pt-3 flex items-center justify-around">
             {[
               { icon: LayoutGrid, label: "Inicio", active: true, href: "/home" },
-              { icon: TrendingUp, label: "Inversiones", active: false, href: "/investments" },
               { icon: CreditCard, label: "Tarjetas", active: false, href: "/home" },
               { icon: User, label: "Perfil", active: false, href: "/home" },
             ].map((item) => (

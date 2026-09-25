@@ -7,15 +7,6 @@ export async function getWalletAccount() {
   const token = await getAuthToken();
   if (!token) return null;
 
-  if (token === "MOCK_TOKEN_DEMO") {
-    return {
-      id: 999,
-      number: "WAL-DEMO-001",
-      balance: 15420.50,
-      state: "active",
-    };
-  }
-
   try {
     const response = await fetchFromOdoo("/api/wallet/account", {
       method: "POST",
@@ -41,14 +32,6 @@ export async function getWalletAccount() {
 export async function getWalletTransactions(limit = 10, offset = 0) {
   const token = await getAuthToken();
   if (!token) return [];
-
-  if (token === "MOCK_TOKEN_DEMO") {
-    return [
-      { id: 1, description: "Movistar", date: new Date().toISOString(), amount: -30.00 },
-      { id: 2, description: "Recarga de saldo", date: new Date(Date.now() - 86400000).toISOString(), amount: 150.00 },
-      { id: 3, description: "Transferencia a Juan", date: new Date(Date.now() - 172800000).toISOString(), amount: -45.50 },
-    ];
-  }
 
   try {
     const response = await fetchFromOdoo("/api/wallet/transactions", {

@@ -2,9 +2,9 @@ import { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Inversiones Mihome',
+    name: 'MiHome Billetera',
     short_name: 'Mihome',
-    description: 'Billetera Digital de Inversiones Mihome',
+    description: 'Billetera digital MiHome',
     start_url: '/',
     display: 'standalone',
     background_color: '#0f172a',
