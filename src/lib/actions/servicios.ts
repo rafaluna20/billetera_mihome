@@ -73,3 +73,30 @@ export async function pagarRecibo(params: { plataforma: string; recibo: string; 
     return { success: false, code: "conexion", error: "No pudimos confirmar el pago. Revisa tus movimientos; si insistes, no se cobrará dos veces." }
   }
 }
+
+export type ResultadoEntrada = { estado: "ok"; url: string } | { estado: "sesion" } | { estado: "no_disponible" } | { estado: "conexion" }
+
+/**
+ * Entrada sin contraseña a otra app propia (p. ej. asistencia). El banco emite un código de un solo uso (60 s) atado a
+ * esa app y devuelve la dirección de entrada; la app lo canjea con el banco y valida quién eres. Desde aquí solo viaja
+ * el nombre de la app: la identidad sale del token de la sesión.
+ */
+export async function abrirAplicacion(aplicacion: string): Promise<ResultadoEntrada> {
+  const token = await getAuthToken()
+  if (!token) return { estado: "sesion" }
+  if (typeof aplicacion !== "string" || !/^[a-z][a-z0-9_]{2,39}$/.test(aplicacion)) return { estado: "no_disponible" }
+  try {
+    const response = await fetchFromOdoo("/api/wallet/sso/issue", {
+      method: "POST",
+      body: JSON.stringify({ params: { platform: aplicacion } }),
+      token,
+    })
+    const r = response.result
+    if (r?.success && typeof r.url === "string" && /^https?:\/\//i.test(r.url)) return { estado: "ok", url: r.url }
+    if (r?.code === "no_autorizado" || r?.error === "Unauthorized") return { estado: "sesion" }
+    if (r?.code === "plataforma_no_disponible") return { estado: "no_disponible" }
+    return { estado: "conexion" }
+  } catch {
+    return { estado: "conexion" }
+  }
+}

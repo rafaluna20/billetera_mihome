@@ -3,6 +3,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 
 import { MarcoApp } from "@/components/MarcoApp"
+import { EntrarAplicacion } from "@/components/servicios/EntrarAplicacion"
 import { RecibosPorPagar } from "@/components/servicios/RecibosPorPagar"
 import { obtenerRecibos } from "@/lib/actions/servicios"
 import type { PlataformaCobros } from "@/lib/servicios"
@@ -39,7 +40,8 @@ export default async function ServiciosPage() {
 
   const plataformas: PlataformaCobros[] = r.estado === "ok" ? r.plataformas : []
   const pendientes = plataformas.reduce((n, p) => n + (p.estado === "ok" ? p.charges.length : 0), 0)
-  // Enlace a la app de asistencia: configurable por el servidor (si no está definido, la tarjeta no se muestra).
+  // La tarjeta de asistencia se muestra si el servidor la habilita (ASISTENCIA_SSO=true): entra con la sesión de la billetera.
+  const asistenciaSso = process.env.ASISTENCIA_SSO === "true"
   const asistenciaUrl = process.env.ASISTENCIA_URL?.trim()
 
   return (
@@ -54,11 +56,15 @@ export default async function ServiciosPage() {
           <Tarjeta titulo="Inversiones" detalle="Tu patrimonio" href="/inversiones">
             <TrendingUp size={22} aria-hidden />
           </Tarjeta>
-          {asistenciaUrl && (
+          {asistenciaSso ? (
+            <EntrarAplicacion aplicacion="asistencia" titulo="Asistencia" detalle="Marcar con QR">
+              <UserCheck size={22} aria-hidden />
+            </EntrarAplicacion>
+          ) : asistenciaUrl ? (
             <Tarjeta titulo="Asistencia" detalle="Marcar con QR" href={asistenciaUrl} externo>
               <UserCheck size={22} aria-hidden />
             </Tarjeta>
-          )}
+          ) : null}
         </section>
 
         {r.estado === "conexion" ? (

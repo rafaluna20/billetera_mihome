@@ -11,7 +11,7 @@ vi.mock("next/headers", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }))
 vi.mock("next/navigation", () => ({ redirect: () => undefined }))
 
-import { obtenerRecibos, pagarRecibo } from "@/lib/actions/servicios"
+import { abrirAplicacion, obtenerRecibos, pagarRecibo } from "@/lib/actions/servicios"
 import { estadoVencimiento, fechaCorta, totalPendiente, validarPago, type Recibo } from "@/lib/servicios"
 import { proxy } from "@/proxy"
 import { NextRequest } from "next/server"
@@ -131,4 +131,42 @@ describe("lógica de presentación", () => {
 test("/servicios exige sesión", () => {
   expect(proxy(new NextRequest("http://localhost/servicios")).status).toBe(307)
   expect(proxy(new NextRequest("http://localhost/servicios", { headers: { cookie: "wallet_token=abc" } })).headers.get("location")).toBeNull()
+})
+
+describe("entrada sin contraseña a otra app (SSO)", () => {
+  test("pide el código al banco con el token de la sesión y solo manda el nombre de la app", async () => {
+    fetchSimulado.mockResolvedValue(respuestaOdoo({ success: true, url: "https://asistencia.example.com/api/auth/sso?code=abc" }))
+    const r = await abrirAplicacion("asistencia")
+    expect(r).toEqual({ estado: "ok", url: "https://asistencia.example.com/api/auth/sso?code=abc" })
+    expect(fetchSimulado.mock.calls[0][0]).toContain("/api/wallet/sso/issue")
+    expect(cuerpoEnviado()).toEqual({ platform: "asistencia" })
+    expect(fetchSimulado.mock.calls[0][1].headers.Authorization).toBe("Bearer token-de-prueba")
+  })
+
+  test("sin sesión no llama al banco", async () => {
+    cookiesSimuladas.clear()
+    expect(await abrirAplicacion("asistencia")).toEqual({ estado: "sesion" })
+    expect(fetchSimulado).not.toHaveBeenCalled()
+  })
+
+  test("nombres raros no llegan al banco", async () => {
+    for (const malo of ["", "A", "../x", "asistencia; drop", "x".repeat(60), 5 as unknown as string]) {
+      expect(await abrirAplicacion(malo)).toEqual({ estado: "no_disponible" })
+    }
+    expect(fetchSimulado).not.toHaveBeenCalled()
+  })
+
+  test("rechaza direcciones que no son http(s) aunque vengan del banco", async () => {
+    fetchSimulado.mockResolvedValue(respuestaOdoo({ success: true, url: "javascript:alert(1)" }))
+    expect((await abrirAplicacion("asistencia")).estado).toBe("conexion")
+  })
+
+  test("distingue sesión vencida, app no disponible y falla de red", async () => {
+    fetchSimulado.mockResolvedValueOnce(respuestaOdoo({ success: false, code: "no_autorizado" }))
+    expect(await abrirAplicacion("asistencia")).toEqual({ estado: "sesion" })
+    fetchSimulado.mockResolvedValueOnce(respuestaOdoo({ success: false, code: "plataforma_no_disponible" }))
+    expect(await abrirAplicacion("asistencia")).toEqual({ estado: "no_disponible" })
+    fetchSimulado.mockRejectedValueOnce(new Error("caída"))
+    expect(await abrirAplicacion("asistencia")).toEqual({ estado: "conexion" })
+  })
 })
