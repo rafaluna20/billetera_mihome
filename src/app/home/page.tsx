@@ -1,9 +1,7 @@
 import {
   Bell,
   ChevronRight,
-  CreditCard,
   Headset,
-  LayoutGrid,
   Plus,
   QrCode,
   RefreshCcw,
@@ -11,7 +9,6 @@ import {
   ShoppingBag,
   Smartphone,
   Store,
-  User,
   Wallet,
   Zap,
   ArrowDownLeft,
@@ -19,6 +16,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import BalanceCard from "@/components/BalanceCard"
+import { BottomNav } from "@/components/BottomNav"
 import { LogoutButton } from "@/components/LogoutButton"
 
 import { getWalletTransactions, obtenerCuenta, type Movimiento } from "@/lib/actions/wallet"
@@ -193,23 +191,7 @@ export default async function HomeScreen() {
             )}
           </div>
 
-          {/* Bottom Navigation Bar */}
-          <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 px-4 pb-6 pt-3 flex items-center justify-around">
-            {[
-              { icon: LayoutGrid, label: "Inicio", active: true, href: "/home" },
-              { icon: CreditCard, label: "Tarjetas", active: false, href: "/home" },
-              { icon: User, label: "Perfil", active: false, href: "/home" },
-            ].map((item) => (
-              <Link href={item.href} key={item.label} className="flex flex-col items-center gap-1.5 group">
-                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${item.active ? "bg-[#681984]" : "group-hover:bg-gray-50"}`}>
-                  <item.icon size={19} className={item.active ? "text-white" : "text-gray-400 group-hover:text-[#681984]"} />
-                </div>
-                <span className={`text-[10px] font-semibold ${item.active ? "text-[#681984]" : "text-gray-400"}`}>
-                  {item.label}
-                </span>
-              </Link>
-            ))}
-          </div>
+          <BottomNav activa="inicio" />
         </div>
 
       </div>
