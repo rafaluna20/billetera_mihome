@@ -200,6 +200,8 @@ export default function YapearPage() {
   // PIN de operaciones: lo valida el servidor en cada transferencia; aquí no se guarda
   const [pin, setPin] = useState("")
   const [pinError, setPinError] = useState("")
+  // Clave de idempotencia del envío en curso: se reutiliza en los reintentos mientras no cambien destino ni monto.
+  const llaveEnvio = useRef<{ firma: string; llave: string } | null>(null)
 
   const selectRecipient = (r: Recipient) => {
     setRecipient(r)
@@ -238,18 +240,30 @@ export default function YapearPage() {
     if (isNaN(num) || num <= 0) { setErrorMsg("Monto inválido"); return }
     if (!/^\d{4,6}$/.test(pin)) { setPinError("Ingresa tu clave (4 a 6 dígitos) para confirmar."); return }
     setPinError("")
+    const destino = recipient.account_number || recipient.email || recipient.phone || recipient.name
+    const firma = `${destino}|${num}`
+    if (llaveEnvio.current?.firma !== firma) llaveEnvio.current = { firma, llave: `TXN-${crypto.randomUUID()}` }
     setLoading(true)
-    const res = await transferFunds({
+    let res: Awaited<ReturnType<typeof transferFunds>>
+    try {
+      res = await transferFunds({
+      llave: llaveEnvio.current.llave,
       pin,
       destinationEmail: recipient.email,
       destinationAccountNumber: recipient.account_number,
       destinationPhone: recipient.phone,
       amount: num,
       description: description || `Yapeo a ${recipient.name}`,
-    })
+      })
+    } catch {
+      // Se cortó la conexión (o el servidor tardó demasiado): no se sabe si se envió. Nunca dejar la pantalla colgada.
+      setLoading(false)
+      setPinError("Se perdió la conexión. Toca «¡Yapear ahora!» otra vez: si ya se envió, no se enviará dos veces.")
+      return
+    }
     setLoading(false)
     setPin("")
-    if (res.success) { setTxResult(res.transaction); setStep("success") }
+    if (res.success) { llaveEnvio.current = null; setTxResult(res.transaction); setStep("success") }
     else if (res.code?.startsWith("pin_")) {
       // Error de clave: se queda en la confirmación para reintentar (el servidor cuenta los intentos)
       setPinError(

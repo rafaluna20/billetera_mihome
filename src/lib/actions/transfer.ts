@@ -42,11 +42,14 @@ export async function transferFunds(params: {
   amount: number
   description?: string
   pin: string
+  /** Clave de idempotencia de ESTE envío: reintentar con la misma nunca transfiere dos veces. */
+  llave: string
 }) {
   const token = await getAuthToken()
   if (!token) return { success: false, error: "No autenticado" }
 
-  const idempotencyKey = `TXN-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
+  if (!/^[A-Za-z0-9_.:-]{8,100}$/.test(params.llave)) return { success: false, error: "Solicitud inválida. Recarga la página." }
+  const idempotencyKey = params.llave
 
   try {
     const body: any = {
@@ -77,6 +80,7 @@ export async function transferFunds(params: {
       intentosRestantes: result?.intentos_restantes as number | undefined,
     }
   } catch {
-    return { success: false, error: "Error de conexión" }
+    // Resultado incierto: puede que el banco SÍ lo haya aplicado. Reintentar con la misma llave es seguro.
+    return { success: false, code: "conexion", error: "No pudimos confirmar el envío. Reintenta: no se enviará dos veces." }
   }
 }

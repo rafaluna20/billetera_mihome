@@ -45,7 +45,15 @@ export default function DepositarPage() {
 
     setLoading(true)
     setError("")
-    const res = await depositarEnPlataforma({ platform: plataforma, amount: importe, pin, llave: llaveRef.current.llave })
+    let res: Awaited<ReturnType<typeof depositarEnPlataforma>>
+    try {
+      res = await depositarEnPlataforma({ platform: plataforma, amount: importe, pin, llave: llaveRef.current.llave })
+    } catch {
+      // Se cortó la conexión: no se sabe si se aplicó. Reintentar con la misma llave es seguro; nunca dejar la pantalla colgada.
+      setLoading(false)
+      setError("Se perdió la conexión. Toca Depositar otra vez: si ya se hizo, no se depositará dos veces.")
+      return
+    }
     setLoading(false)
     setPin("")
     if (res.success) {
