@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Camera, CameraOff } from "lucide-react"
+import type { Html5Qrcode } from "html5-qrcode"
 
 interface QRScannerProps {
   onScan: (result: string) => void
@@ -11,7 +12,7 @@ interface QRScannerProps {
 export default function QRScanner({ onScan, onError }: QRScannerProps) {
   const [started, setStarted] = useState(false)
   const [error, setError] = useState("")
-  const scannerRef = useRef<any>(null)
+  const scannerRef = useRef<Html5Qrcode | null>(null)
   const containerId = "qr-reader-container"
 
   useEffect(() => {
@@ -21,7 +22,9 @@ export default function QRScanner({ onScan, onError }: QRScannerProps) {
         try {
           scannerRef.current.stop()
           scannerRef.current.clear()
-        } catch (_) {}
+        } catch {
+          /* ya estaba detenido */
+        }
       }
     }
   }, [])
@@ -40,12 +43,12 @@ export default function QRScanner({ onScan, onError }: QRScannerProps) {
           scanner.stop()
           setStarted(false)
         },
-        (_: any) => {} // ignore frame errors silently
+        () => {} // los errores por cuadro (sin QR a la vista) se ignoran
       )
       setStarted(true)
       setError("")
-    } catch (err: any) {
-      const msg = err?.message || "No se pudo acceder a la cámara"
+    } catch (err) {
+      const msg = (err instanceof Error && err.message) || "No se pudo acceder a la cámara"
       setError(msg)
       onError?.(msg)
     }
@@ -56,7 +59,9 @@ export default function QRScanner({ onScan, onError }: QRScannerProps) {
       try {
         await scannerRef.current.stop()
         scannerRef.current.clear()
-      } catch (_) {}
+      } catch {
+        /* ya estaba detenido */
+      }
       scannerRef.current = null
     }
     setStarted(false)

@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { fetchFromOdoo } from "../api";
+import { baseDeDatos, COOKIES_SESION, SESION_SEGUNDOS } from "../config";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
@@ -13,8 +14,8 @@ export async function login(username: string, password: string) {
         params: {
           username: username,
           password: password,
-          // Base de datos del Odoo (configurable): antes estaba fija en "rel", que es el nombre del proyecto en Easypanel.
-          db: process.env.ODOO_DB || "rel",
+          // Base de datos del Odoo: sale de ODOO_DB (en producción es obligatoria).
+          db: baseDeDatos(),
         }
       })
     });
@@ -23,27 +24,23 @@ export async function login(username: string, password: string) {
 
     if (result && result.success) {
       const cookieStore = await cookies();
-      cookieStore.set("wallet_token", result.token, {
+      const opciones = {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        sameSite: "lax" as const,
         path: "/",
-        maxAge: 60 * 60 * 24 * 7,
-      });
-      cookieStore.set("wallet_user_email", username, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 7,
-      });
+        maxAge: SESION_SEGUNDOS,
+      };
+      cookieStore.set("wallet_token", String(result.token), opciones);
+      cookieStore.set("wallet_user_email", username, opciones);
 
       revalidatePath("/", "layout");
-      return { success: true, hasPin: Boolean(result.wallet?.has_pin) };
+      const wallet = result.wallet as { has_pin?: boolean } | undefined;
+      return { success: true, hasPin: Boolean(wallet?.has_pin) };
     } else {
       return { success: false, error: result?.error || "Credenciales inválidas en Odoo" };
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error("Login Error:", error);
     return { success: false, error: "Error de conexión con el servidor" };
   }
@@ -51,10 +48,7 @@ export async function login(username: string, password: string) {
 
 export async function logout() {
   const cookieStore = await cookies();
-  cookieStore.delete("wallet_token");
-  cookieStore.delete("wallet_user_email");
-  cookieStore.delete("wallet_firebase_uid");
-  cookieStore.delete("wallet_firebase_collection");
+  for (const nombre of COOKIES_SESION) cookieStore.delete(nombre);
   revalidatePath("/", "layout");
   redirect("/");
 }
@@ -68,7 +62,7 @@ export async function checkSession() {
   const cookieStore = await cookies();
   const token = cookieStore.get("wallet_token")?.value;
   const email = cookieStore.get("wallet_user_email")?.value;
-  
+
   if (token && email) {
     return { active: true, email: email };
   }

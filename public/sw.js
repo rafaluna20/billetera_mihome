@@ -1,66 +1,48 @@
-const CACHE_NAME = 'mihome-pwa-cache-v1';
+// Service worker de la billetera.
+//
+// SEGURIDAD: aquí solo se guardan archivos ESTÁTICOS (íconos, scripts y estilos de la app). Nunca las pantallas
+// con saldos o movimientos (/home, /yapear, /depositar): en un teléfono compartido, otra persona vería la
+// billetera de la sesión anterior aunque ya se hubiera cerrado. Las páginas siempre van a la red.
+const CACHE_NAME = 'mihome-pwa-cache-v2';
 const STATIC_ASSETS = [
-  '/',
   '/manifest.webmanifest',
   '/icon-192x192.png',
   '/icon-512x512.png',
 ];
 
+const ES_ESTATICO = (url) =>
+  url.pathname.startsWith('/_next/static/') || STATIC_ASSETS.includes(url.pathname);
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
-    })
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)));
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
+  // Borra TODO lo guardado por versiones anteriores (la v1 guardaba páginas).
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
-      );
-    })
+    caches.keys().then((nombres) => Promise.all(nombres.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n))))
   );
   self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-  // Solo interceptamos peticiones GET
   if (event.request.method !== 'GET') return;
-  // Excluimos APIs y peticiones Next.js de datos en caliente para evitar problemas de estado
-  if (event.request.url.includes('/api/') || event.request.url.includes('_next/data/')) return;
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+  // Todo lo que no sea un archivo estático (páginas, acciones, API) pasa directo a la red, sin tocar el caché.
+  if (!ES_ESTATICO(url)) return;
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Retornar del caché pero actualizar en segundo plano (Stale-While-Revalidate)
-        fetch(event.request).then((response) => {
-          if (response && response.status === 200 && response.type === 'basic') {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, response);
-            });
-          }
-        }).catch(() => {});
-        return cachedResponse;
-      }
-
-      return fetch(event.request).then((response) => {
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response;
+    caches.match(event.request).then((guardado) => {
+      const red = fetch(event.request).then((respuesta) => {
+        if (respuesta && respuesta.status === 200 && respuesta.type === 'basic') {
+          const copia = respuesta.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copia));
         }
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
-        return response;
-      }).catch(() => {
-        // En caso de estar offline y no tener el recurso
-        // Aquí se podría retornar una página de "Estás offline" si estuviera en el caché
+        return respuesta;
       });
+      return guardado || red;
     })
   );
 });

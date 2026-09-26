@@ -1,12 +1,22 @@
-export const ODOO_URL = process.env.NEXT_PUBLIC_ODOO_URL || "https://rel-odoo.ci5uw7.easypanel.host";
+import { urlOdoo } from "./config";
 
 interface FetchOptions extends RequestInit {
   token?: string;
 }
 
-export async function fetchFromOdoo(endpoint: string, options: FetchOptions = {}) {
+/** Respuesta JSON-RPC del banco: los datos vienen dentro de `result`. */
+export interface RespuestaOdoo {
+  result?: {
+    success?: boolean;
+    error?: string;
+    code?: string;
+    [clave: string]: unknown;
+  };
+}
+
+export async function fetchFromOdoo(endpoint: string, options: FetchOptions = {}): Promise<RespuestaOdoo> {
   const { token, headers, ...rest } = options;
-  
+
   const defaultHeaders: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -19,7 +29,7 @@ export async function fetchFromOdoo(endpoint: string, options: FetchOptions = {}
   const timeoutId = setTimeout(() => controller.abort(), 25000);
 
   try {
-    const response = await fetch(`${ODOO_URL}${endpoint}`, {
+    const response = await fetch(`${urlOdoo()}${endpoint}`, {
       headers: {
         ...defaultHeaders,
         ...headers,
@@ -28,19 +38,17 @@ export async function fetchFromOdoo(endpoint: string, options: FetchOptions = {}
       ...rest,
     });
 
-    clearTimeout(timeoutId);
-
     if (!response.ok) {
       throw new Error(`Odoo API Error: ${response.status} ${response.statusText}`);
     }
 
     return await response.json();
-  } catch (error: any) {
-    clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
-      throw new Error('Odoo API Timeout: El servidor tardó demasiado en responder');
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Odoo API Timeout: El servidor tardó demasiado en responder");
     }
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
 }

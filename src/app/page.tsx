@@ -1,9 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import QRCode from "react-qr-code"
-import { Lock, Smartphone, Headset, Fingerprint, Delete, LogIn, Loader2, Eye, EyeOff } from "lucide-react"
+import { Lock, Smartphone, Headset, Fingerprint, Delete, Loader2, Eye, EyeOff } from "lucide-react"
 import { login, checkSession } from "@/lib/actions/auth"
 import { crearPin, verificarPin, pedirCodigoPin, restablecerPin } from "@/lib/actions/pin"
 
@@ -12,7 +11,6 @@ type AuthStep = "loading" | "register" | "create_pin" | "pin_login" | "reset_pin
 const PIN_LEN = 6
 
 export default function LoginScreen() {
-  const router = useRouter()
   const [step, setStep] = useState<AuthStep>("loading")
 
   // Registration state
@@ -34,6 +32,17 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [info, setInfo] = useState("")
+
+  const shuffleKeypad = () => {
+    const nums = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    for (let i = nums.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [nums[i], nums[j]] = [nums[j], nums[i]]
+    }
+    const bottom = nums.pop()!
+    setKeypadNums(nums)
+    setBottomNum(bottom)
+  }
 
   // Initialize and check saved credentials
   useEffect(() => {
@@ -61,17 +70,6 @@ export default function LoginScreen() {
 
     initAuth()
   }, [])
-
-  const shuffleKeypad = () => {
-    const nums = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    for (let i = nums.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [nums[i], nums[j]] = [nums[j], nums[i]]
-    }
-    const bottom = nums.pop()!
-    setKeypadNums(nums)
-    setBottomNum(bottom)
-  }
 
   const mensajeDePin = (res: { code?: string; error?: string; intentosRestantes?: number }) => {
     if (res.code === "pin_invalido") {
@@ -101,7 +99,9 @@ export default function LoginScreen() {
         // Ya tiene clave en el servidor: este dispositivo queda registrado
         localStorage.setItem("yape_email", username)
         setPassword("")
-        window.location.href = "/home"
+        // Recarga completa a propósito: limpia la caché del router de Next entre cuentas
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.assign("/home")
       } else {
         // Primera vez: crear la clave (se confirma con la contraseña recién ingresada)
         setStep("create_pin")
@@ -148,7 +148,9 @@ export default function LoginScreen() {
       if (res.success) {
         localStorage.setItem("yape_email", username)
         setPassword("")
-        window.location.href = "/home"
+        // Recarga completa a propósito: limpia la caché del router de Next entre cuentas
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.assign("/home")
         return
       }
       setLoading(false)
@@ -162,7 +164,9 @@ export default function LoginScreen() {
       setLoading(true)
       const res = await verificarPin(newPin)
       if (res.success) {
-        window.location.href = "/home"
+        // Recarga completa a propósito: limpia la caché del router de Next entre cuentas
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.assign("/home")
         return
       }
       setLoading(false)
@@ -284,6 +288,7 @@ export default function LoginScreen() {
                 </div>
 
                 {error && <p className="text-red-500 text-[13px]">{error}</p>}
+                {info && <p className="text-[#00b5ad] text-[13px] font-medium">{info}</p>}
 
                 <button type="submit" disabled={loading} className="mt-auto h-[54px] w-full bg-[#681984] text-white font-bold text-[16px] rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg">
                   {loading ? <Loader2 size={19} className="animate-spin" /> : "Continuar"}
@@ -294,7 +299,7 @@ export default function LoginScreen() {
                     ¿No tienes una billetera digital?{" "}
                     <button 
                       type="button" 
-                      onClick={() => alert("El registro se realiza desde la plataforma web principal.")}
+                      onClick={() => setInfo("El registro se realiza desde la plataforma web principal.")}
                       className="text-[#00b5ad] font-bold"
                     >
                       Regístrate

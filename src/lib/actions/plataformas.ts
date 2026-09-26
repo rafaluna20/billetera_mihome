@@ -69,12 +69,12 @@ export async function depositarEnPlataforma(params: {
       token,
     })
     const result = response.result
-    if (result?.success) return { success: true, saldo: result.balance, repetido: Boolean(result.idempotent) }
+    if (result?.success) return { success: true, saldo: result.balance as number | undefined, repetido: Boolean(result.idempotent) }
     return {
       success: false,
       code: result?.code,
       error: result?.error || "No se pudo completar el depósito",
-      intentosRestantes: result?.intentos_restantes,
+      intentosRestantes: result?.intentos_restantes as number | undefined,
     }
   } catch {
     // Resultado incierto: puede que el banco SÍ lo haya aplicado. Reintentar con la misma llave es seguro.

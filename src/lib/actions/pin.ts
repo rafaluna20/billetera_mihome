@@ -33,7 +33,7 @@ async function llamarPin(endpoint: string, params: Record<string, unknown>): Pro
       success: false,
       code: result?.code,
       error: result?.error || "No se pudo completar la operación",
-      intentosRestantes: result?.intentos_restantes,
+      intentosRestantes: result?.intentos_restantes as number | undefined,
     }
   } catch {
     return { success: false, code: "conexion", error: "Error de conexión" }

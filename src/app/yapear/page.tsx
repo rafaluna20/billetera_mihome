@@ -3,12 +3,14 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
-  X, Search, Smartphone, ChevronRight, ArrowLeft,
-  CheckCircle2, Loader2, AlertCircle, User, QrCode,
-  Mail, CreditCard, Share2, Calendar, Clock, MessageSquare, Info, Headset
+  X, Smartphone, ChevronRight, ArrowLeft,
+  Loader2, AlertCircle, User, QrCode,
+  Mail, CreditCard, Share2, Calendar, Clock, MessageSquare
 } from "lucide-react"
-import { searchWalletUsers, transferFunds, type WalletContact } from "@/lib/actions/transfer"
+import type { LucideIcon } from "lucide-react"
+import { searchWalletUsers, transferFunds, type ResultadoTransferencia, type TipoBusqueda, type WalletContact } from "@/lib/actions/transfer"
 import QRScanner from "@/components/QRScanner"
+import { obtenerLimites, type LimitesBilletera } from "@/lib/actions/wallet"
 
 type Step =
   | "menu"
@@ -35,6 +37,7 @@ const avatarColors = [
 function colorForName(name: string) {
   return avatarColors[name.charCodeAt(0) % avatarColors.length]
 }
+const MIN_CONSULTA = 3
 function getInitials(name: string) {
   return name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
 }
@@ -53,7 +56,7 @@ function SearchInputScreen({
   title: string
   placeholder: string
   inputType: string
-  icon: any
+  icon: LucideIcon
   iconColor: string
   onSelect: (r: Recipient) => void
   onBack: () => void
@@ -61,30 +64,43 @@ function SearchInputScreen({
 }) {
   const [query, setQuery] = useState("")
   const [contacts, setContacts] = useState<WalletContact[]>([])
-  const [loading, setLoading] = useState(true)
-  const timeout = useRef<NodeJS.Timeout | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [notice, setNotice] = useState("")
+  const tipoBusqueda: TipoBusqueda = suggestionsKey === "account_number" ? "account" : suggestionsKey
+  const consultaLista = query.trim().length >= MIN_CONSULTA
 
   useEffect(() => {
-    searchWalletUsers("", suggestionsKey).then(r => { setContacts(r); setLoading(false) })
-  }, [suggestionsKey])
-
-  useEffect(() => {
-    if (timeout.current) clearTimeout(timeout.current)
-    timeout.current = setTimeout(async () => {
+    if (!consultaLista) return
+    let vigente = true
+    const temporizador = setTimeout(async () => {
       setLoading(true)
-      const r = await searchWalletUsers(query, suggestionsKey)
+      const r = await searchWalletUsers(query, tipoBusqueda)
+      if (!vigente) return // llegó tarde: ya se escribió otra cosa
       setContacts(r)
       setLoading(false)
     }, 350)
-  }, [query, suggestionsKey])
+    return () => {
+      vigente = false
+      clearTimeout(temporizador)
+    }
+  }, [query, tipoBusqueda, consultaLista])
+  const resultados = consultaLista ? contacts : []
 
-  const confirmManual = () => {
-    if (!query.trim()) return
-    const r: Recipient = { name: query }
-    if (suggestionsKey === "phone") r.phone = query
-    else if (suggestionsKey === "email") r.email = query
-    else r.account_number = query.toUpperCase()
-    onSelect(r)
+  // Lo que se escribe a mano se verifica con el banco: solo se sigue si existe una billetera con ese dato,
+  // y el nombre que se muestra es el del banco, no lo que escribió quien envía.
+  const confirmManual = async () => {
+    const texto = query.trim()
+    if (texto.length < MIN_CONSULTA) return
+    setNotice("")
+    setLoading(true)
+    const r = await searchWalletUsers(texto, tipoBusqueda)
+    setLoading(false)
+    if (r.length === 1) {
+      onSelect(r[0])
+      return
+    }
+    setContacts(r)
+    setNotice(r.length === 0 ? "No encontramos una billetera con ese dato." : "Hay varios resultados: elige uno de la lista.")
   }
 
   return (
@@ -119,9 +135,10 @@ function SearchInputScreen({
         </div>
 
         {/* Confirm manual button */}
-        {query.length >= 3 && (
+        {consultaLista && (
           <button
             onClick={confirmManual}
+            disabled={loading}
             className="mt-3 w-full flex items-center justify-between bg-[#f5f0fa] border border-[#e8dff0] rounded-2xl px-4 py-3 hover:bg-[#ede6f6] transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -142,22 +159,24 @@ function SearchInputScreen({
       <div className="flex-1 overflow-y-auto">
         <div className="px-5 py-3">
           <p className="text-gray-500 text-[12px] font-semibold uppercase tracking-wider">
-            {query ? "Resultados" : "Contactos con billetera"}
+            {consultaLista ? "Resultados" : "Buscar una billetera"}
           </p>
         </div>
 
-        {loading ? (
+        {loading && consultaLista ? (
           <div className="flex justify-center py-8">
             <Loader2 size={22} className="text-[#681984] animate-spin" />
           </div>
-        ) : contacts.length === 0 ? (
+        ) : resultados.length === 0 ? (
           <div className="flex flex-col items-center py-12 px-6 text-center">
             <User size={38} className="text-gray-200 mb-3" />
-            <p className="text-gray-400 text-[14px]">No se encontraron resultados</p>
+            <p className="text-gray-400 text-[14px]">
+              {notice || (consultaLista ? "No se encontraron resultados" : `Escribe al menos ${MIN_CONSULTA} caracteres para buscar`)}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-gray-50 px-3">
-            {contacts.map((c, i) => {
+            {resultados.map((c, i) => {
               const displayValue =
                 suggestionsKey === "phone" ? c.phone :
                 suggestionsKey === "email" ? c.email :
@@ -195,36 +214,46 @@ export default function YapearPage() {
   const [amount, setAmount] = useState("")
   const [description, setDescription] = useState("")
   const [loading, setLoading] = useState(false)
-  const [txResult, setTxResult] = useState<any>(null)
+  const [txResult, setTxResult] = useState<ResultadoTransferencia["transaction"] | null>(null)
   const [errorMsg, setErrorMsg] = useState("")
   // PIN de operaciones: lo valida el servidor en cada transferencia; aquí no se guarda
   const [pin, setPin] = useState("")
   const [pinError, setPinError] = useState("")
   // Clave de idempotencia del envío en curso: se reutiliza en los reintentos mientras no cambien destino ni monto.
   const llaveEnvio = useRef<{ firma: string; llave: string } | null>(null)
+  // Límites reales de la cuenta (los que aplica el banco). Mientras no lleguen, no se muestra ninguna cifra.
+  const [limites, setLimites] = useState<LimitesBilletera | null>(null)
+  useEffect(() => {
+    obtenerLimites().then(setLimites)
+  }, [])
 
   const selectRecipient = (r: Recipient) => {
     setRecipient(r)
     setStep("amount")
   }
 
-  const handleQRScan = (raw: string) => {
+  const handleQRScan = async (raw: string) => {
+    // El QR lo puede fabricar cualquiera: solo se toma el número de cuenta, y el nombre que se muestra
+    // es el que devuelve el banco para esa cuenta (un QR falso no puede hacerse pasar por otra persona).
+    let cuenta = ""
     try {
-      const data = JSON.parse(raw)
-      if (data.type === "MHOME_PAY") {
-        selectRecipient({
-          name: data.name || "Usuario MiHome",
-          account_number: data.account,
-          phone: data.phone,
-        })
-      } else {
-        setErrorMsg("El QR no es válido para MiHome")
-        setStep("error")
-      }
+      const data = raw.length <= 1000 ? JSON.parse(raw) : null
+      if (data?.type === "MHOME_PAY" && typeof data.account === "string") cuenta = data.account.trim().toUpperCase()
     } catch {
-      setErrorMsg("QR no reconocido")
-      setStep("error")
+      /* no es JSON */
     }
+    if (!cuenta) {
+      setErrorMsg("El QR no es válido para MiHome")
+      setStep("error")
+      return
+    }
+    const encontrados = await searchWalletUsers(cuenta, "account")
+    if (encontrados.length !== 1) {
+      setErrorMsg("Esa cuenta no existe o no está activa.")
+      setStep("error")
+      return
+    }
+    selectRecipient(encontrados[0])
   }
 
   const handleKey = (val: string) => {
@@ -249,9 +278,10 @@ export default function YapearPage() {
       res = await transferFunds({
       llave: llaveEnvio.current.llave,
       pin,
-      destinationEmail: recipient.email,
+      // Con número de cuenta se usa solo ese (correo y teléfono de un contacto llegan enmascarados)
       destinationAccountNumber: recipient.account_number,
-      destinationPhone: recipient.phone,
+      destinationEmail: recipient.account_number ? undefined : recipient.email,
+      destinationPhone: recipient.account_number ? undefined : recipient.phone,
       amount: num,
       description: description || `Yapeo a ${recipient.name}`,
       })
@@ -263,7 +293,7 @@ export default function YapearPage() {
     }
     setLoading(false)
     setPin("")
-    if (res.success) { llaveEnvio.current = null; setTxResult(res.transaction); setStep("success") }
+    if (res.success) { llaveEnvio.current = null; setTxResult(res.transaction ?? null); setStep("success") }
     else if (res.code?.startsWith("pin_")) {
       // Error de clave: se queda en la confirmación para reintentar (el servidor cuenta los intentos)
       setPinError(
@@ -275,6 +305,16 @@ export default function YapearPage() {
       )
     }
     else { setErrorMsg(res.error || "Error en la transferencia"); setStep("error") }
+  }
+
+  const compartirComprobante = async () => {
+    const texto = `Yapeé S/ ${parseFloat(amount).toFixed(2)} a ${recipient?.name ?? ""}. Operación: ${txResult?.reference ?? "—"}`
+    try {
+      if (navigator.share) await navigator.share({ title: "Comprobante MiHome", text: texto })
+      else await navigator.clipboard.writeText(texto)
+    } catch {
+      /* la persona canceló el menú de compartir */
+    }
   }
 
   const menuOptions = [
@@ -482,9 +522,11 @@ export default function YapearPage() {
 
               {/* Limits Pill */}
               <div className="flex justify-center mb-8">
-                <div className="bg-[#f8f9fa] text-gray-400 text-[11px] px-4 py-2 rounded-full font-medium">
-                  Límite por yapeo S/500, límite total por día S/2,000
-                </div>
+                {limites && (
+                  <div className="bg-[#f8f9fa] text-gray-400 text-[11px] px-4 py-2 rounded-full font-medium">
+                    Límite por yapeo S/{limites.porOperacion.toLocaleString("es-PE")}, límite total por día S/{limites.porDia.toLocaleString("es-PE")}
+                  </div>
+                )}
               </div>
 
               {/* Message Input */}
@@ -500,9 +542,6 @@ export default function YapearPage() {
 
               {/* Action Buttons */}
               <div className="flex gap-3 mb-6">
-                <button className="flex-1 h-[52px] border-2 border-[#00b5ad] text-[#00b5ad] font-bold text-[15px] rounded-xl flex items-center justify-center active:scale-[0.98] transition-all">
-                  Otros bancos
-                </button>
                 <button
                   onClick={() => setStep("confirm")}
                   disabled={!amount || parseFloat(amount) <= 0}
@@ -677,7 +716,7 @@ export default function YapearPage() {
                 {/* Header Card */}
                 <div className="flex justify-between items-start mb-4">
                   <h2 className="text-[#681984] font-bold text-[22px]">¡Yapeaste!</h2>
-                  <button className="flex items-center gap-1 text-[#00b5ad] font-semibold text-[14px]">
+                  <button onClick={compartirComprobante} className="flex items-center gap-1 text-[#00b5ad] font-semibold text-[14px]">
                     <Share2 size={16} /> Compartir
                   </button>
                 </div>
@@ -714,22 +753,6 @@ export default function YapearPage() {
 
                 <div className="h-px bg-gray-100 my-5" />
 
-                {/* Security Code */}
-                <div className="flex justify-between items-center mb-5">
-                  <div className="flex items-center gap-1">
-                    <span className="text-gray-500 text-[11px] font-bold tracking-wider">CÓDIGO DE SEGURIDAD</span>
-                    <Info size={14} className="text-[#00b5ad]" />
-                  </div>
-                  <div className="flex gap-1.5">
-                    {["9", "9", "2"].map((n, i) => (
-                      <div key={i} className="w-8 h-8 bg-[#f5f6f8] rounded-md flex items-center justify-center font-bold text-gray-800">
-                        {n}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="h-px bg-gray-100 my-5" />
 
                 {/* Transaction Data */}
                 <div className="mb-2">
@@ -749,26 +772,10 @@ export default function YapearPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500 text-[14px]">Nro. de operación</span>
-                    <span className="text-gray-800 text-[14px] font-medium">{txResult?.reference || "26101992"}</span>
+                    <span className="text-gray-800 text-[14px] font-medium">{txResult?.reference || "—"}</span>
                   </div>
                 </div>
 
-              </div>
-            </div>
-
-            {/* Banners Footer */}
-            <div className="flex-1 mt-6 bg-[#5a1570] rounded-t-[1.5rem] p-5 relative z-10 flex flex-col gap-3">
-              <h3 className="text-white font-bold text-[16px]">Más en MiHome</h3>
-              
-              <div className="w-full bg-gradient-to-r from-[#ffeaa7] to-[#fdcb6e] rounded-2xl p-4 flex justify-between items-center shadow-lg">
-                <div>
-                  <span className="bg-white text-gray-800 text-[10px] font-bold px-2 py-1 rounded-md">MiHome Tienda</span>
-                  <p className="font-bold text-gray-900 text-[14px] mt-2 leading-tight">Hasta 50% dscto<br/>en Tecnología aquí</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Smartphone size={32} className="text-gray-800" />
-                  <Headset size={32} className="text-gray-800" />
-                </div>
               </div>
             </div>
 

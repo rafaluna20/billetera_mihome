@@ -21,10 +21,10 @@ import Link from "next/link"
 import BalanceCard from "@/components/BalanceCard"
 import { LogoutButton } from "@/components/LogoutButton"
 
-import { getWalletAccount, getWalletTransactions } from "@/lib/actions/wallet"
+import { getWalletTransactions, obtenerCuenta, type Movimiento } from "@/lib/actions/wallet"
 import { redirect } from "next/navigation"
 
-function getTransactionIcon(tx: any) {
+function getTransactionIcon(tx: Movimiento) {
   const desc = (tx.description || tx.transaction_type_label || "").toLowerCase()
   if (desc.includes("recarga") || desc.includes("recibid")) return ArrowDownLeft
   if (desc.includes("transfer") || desc.includes("envio") || desc.includes("envío")) return ArrowUpRight
@@ -34,8 +34,21 @@ function getTransactionIcon(tx: any) {
 }
 
 export default async function HomeScreen() {
-  const account = await getWalletAccount()
-  if (!account) redirect("/")
+  const resultado = await obtenerCuenta()
+  // Sesión vencida: /salir borra las cookies y vuelve al inicio (aquí, al dibujar la página, no se pueden borrar).
+  if (resultado.estado === "sesion") redirect("/salir")
+  if (resultado.estado === "conexion") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-900 p-6 text-center">
+        <div className="max-w-xs text-slate-200">
+          <p className="mb-2 text-lg font-bold">No pudimos cargar tu billetera</p>
+          <p className="mb-5 text-sm text-slate-400">Revisa tu conexión e inténtalo de nuevo. Tu sesión sigue abierta.</p>
+          <Link href="/home" className="inline-block rounded-2xl bg-[#00b5ad] px-6 py-3 font-bold text-white">Reintentar</Link>
+        </div>
+      </div>
+    )
+  }
+  const account = resultado.cuenta
 
   const transactions = await getWalletTransactions(8, 0)
 
@@ -46,7 +59,7 @@ export default async function HomeScreen() {
       minimumFractionDigits: 2,
     }).format(amount)
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr?: string) => {
     if (!dateStr) return ""
     return new Date(dateStr).toLocaleDateString("es-PE", {
       day: "numeric",
@@ -152,7 +165,7 @@ export default async function HomeScreen() {
           {/* Transactions List */}
           <div className="flex-1 overflow-y-auto px-6 pb-20 divide-y divide-gray-50">
             {transactions && transactions.length > 0 ? (
-              transactions.map((tx: any) => {
+              transactions.map((tx) => {
                 const Icon = getTransactionIcon(tx)
                 const isPositive = tx.amount >= 0
                 return (
