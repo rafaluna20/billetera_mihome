@@ -13,7 +13,8 @@ export async function login(username: string, password: string) {
         params: {
           username: username,
           password: password,
-          db: "rel",
+          // Base de datos del Odoo (configurable): antes estaba fija en "rel", que es el nombre del proyecto en Easypanel.
+          db: process.env.ODOO_DB || "rel",
         }
       })
     });
