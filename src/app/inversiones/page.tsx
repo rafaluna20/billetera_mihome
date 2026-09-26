@@ -2,29 +2,16 @@ import { ArrowDownLeft, ExternalLink, Plus } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
-import { BottomNav } from "@/components/BottomNav"
 import { ContratosTabs } from "@/components/inversiones/ContratosTabs"
 import { GraficoEvolucion } from "@/components/inversiones/GraficoEvolucion"
-import { LogoutButton } from "@/components/LogoutButton"
+import { MarcoApp } from "@/components/MarcoApp"
 import { obtenerInversiones } from "@/lib/actions/inversiones"
 import { conSigno, formatearDinero, tonoDe, type PlataformaInversion, type ResumenInversiones } from "@/lib/inversiones"
 
 export const metadata = { title: "Inversiones · MiHome Wallet" }
 
 function Marco({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-900 sm:p-4">
-      <div className="relative flex h-[100dvh] w-full max-w-[390px] flex-col overflow-hidden border-4 border-slate-800 bg-[#681984] font-sans shadow-[0_0_60px_rgba(104,25,132,0.5)] sm:h-[844px] sm:rounded-[3rem] sm:border-[#333]">
-        <div className="absolute right-[-60px] top-[-60px] z-0 h-64 w-64 rounded-full bg-[#9b2dba]/25 blur-3xl" />
-        <div className="relative z-10 flex items-center justify-between px-6 pb-2 pt-8">
-          <h1 className="text-[22px] font-bold text-white">Patrimonio</h1>
-          <LogoutButton />
-        </div>
-        {children}
-        <BottomNav activa="inversiones" />
-      </div>
-    </div>
-  )
+  return <MarcoApp titulo="Patrimonio" activa="inversiones">{children}</MarcoApp>
 }
 
 function Tarjeta({ etiqueta, valor, clase }: { etiqueta: string; valor: string; clase?: string }) {

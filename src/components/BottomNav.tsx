@@ -1,16 +1,16 @@
-import { CreditCard, LayoutGrid, TrendingUp, User } from "lucide-react"
+import { LayoutGrid, LayoutList, TrendingUp, User } from "lucide-react"
 import Link from "next/link"
 
-export type PestanaActiva = "inicio" | "inversiones"
+export type PestanaActiva = "inicio" | "servicios" | "inversiones"
 
 const ITEMS = [
   { id: "inicio", icon: LayoutGrid, label: "Inicio", href: "/home" },
+  { id: "servicios", icon: LayoutList, label: "Servicios", href: "/servicios" },
   { id: "inversiones", icon: TrendingUp, label: "Inversiones", href: "/inversiones" },
-  { id: "tarjetas", icon: CreditCard, label: "Tarjetas", href: "/home" },
   { id: "perfil", icon: User, label: "Perfil", href: "/home" },
 ] as const
 
-/** Barra inferior de la app. «Tarjetas» y «Perfil» todavía no tienen pantalla propia y llevan al inicio. */
+/** Barra inferior de la app. «Perfil» todavía no tiene pantalla propia y lleva al inicio. */
 export function BottomNav({ activa }: { activa: PestanaActiva }) {
   return (
     <nav aria-label="Navegación principal" className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 px-4 pb-6 pt-3 flex items-center justify-around">

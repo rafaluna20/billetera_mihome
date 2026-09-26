@@ -8,7 +8,7 @@ import {
   Send,
   ShoppingBag,
   Smartphone,
-  Store,
+  LayoutList,
   Wallet,
   Zap,
   ArrowDownLeft,
@@ -127,12 +127,12 @@ export default async function HomeScreen() {
               <span className="text-white/70 text-[11px] font-medium">QR</span>
             </div>
 
-            {/* Tienda */}
+            {/* Servicios: luz y agua, inversiones y demás servicios conectados */}
             <div className="flex flex-col items-center gap-1.5">
-              <button className="w-full aspect-square rounded-2xl bg-white/90 flex items-center justify-center active:scale-95 transition-transform">
-                <Store size={21} className="text-[#681984]" />
-              </button>
-              <span className="text-white/70 text-[11px] font-medium">Tienda</span>
+              <Link href="/servicios" className="w-full aspect-square rounded-2xl bg-white/90 flex items-center justify-center active:scale-95 transition-transform">
+                <LayoutList size={21} className="text-[#681984]" />
+              </Link>
+              <span className="text-white/70 text-[11px] font-medium">Servicios</span>
             </div>
 
             {/* Depositar en una plataforma */}
