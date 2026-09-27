@@ -192,13 +192,13 @@ describe("beneficios y pantalla del comercio", () => {
 describe("configuración de las pantallas nuevas", () => {
   test("pagar, comercio y beneficios exigen sesión y no se guardan en caché", async () => {
     const { config } = await import("@/proxy")
-    for (const ruta of ["/pagar", "/comercio", "/beneficios"]) {
+    for (const ruta of ["/pagar", "/comercio", "/beneficios", "/recibir"]) {
       expect(config.matcher).toContain(`${ruta}/:path*`)
     }
     const nextConfig = (await import("../next.config")).default
     const cabeceras = await nextConfig.headers?.()
     const sinCache = cabeceras?.find((c) => c.headers.some((h) => h.key === "Cache-Control" && h.value === "no-store"))
-    for (const ruta of ["pagar", "comercio", "beneficios"]) expect(sinCache?.source).toContain(ruta)
+    for (const ruta of ["pagar", "comercio", "beneficios", "recibir"]) expect(sinCache?.source).toContain(ruta)
   })
 })
 

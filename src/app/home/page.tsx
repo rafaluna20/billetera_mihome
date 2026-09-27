@@ -121,10 +121,10 @@ export default async function HomeScreen() {
 
             {/* QR */}
             <div className="flex flex-col items-center gap-1.5">
-              <button className="w-full aspect-square rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center active:scale-95 transition-transform">
+              <Link href="/recibir" className="w-full aspect-square rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center active:scale-95 transition-transform">
                 <QrCode size={21} className="text-white" />
-              </button>
-              <span className="text-white/70 text-[11px] font-medium">QR</span>
+              </Link>
+              <span className="text-white/70 text-[11px] font-medium">Mi QR</span>
             </div>
 
             {/* Servicios: luz y agua, inversiones y demás servicios conectados */}
