@@ -10,10 +10,14 @@ const ITEMS = [
   { id: "perfil", icon: User, label: "Perfil", href: "/home" },
 ] as const
 
-/** Barra inferior de la app. «Perfil» todavía no tiene pantalla propia y lleva al inicio. */
+/**
+ * Barra inferior de la app. Lleva z-40 para quedar SIEMPRE por encima de las hojas de contenido (z-20) de cada pantalla; sin
+ * eso las hojas la tapaban y solo se veía en Inicio. Las ventanas de confirmación de pago (z-50) sí la cubren, a propósito.
+ * «Perfil» todavía no tiene pantalla propia y lleva al inicio.
+ */
 export function BottomNav({ activa }: { activa: PestanaActiva }) {
   return (
-    <nav aria-label="Navegación principal" className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 px-4 pb-6 pt-3 flex items-center justify-around">
+    <nav aria-label="Navegación principal" className="absolute bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-100 px-4 pb-6 pt-3 flex items-center justify-around">
       {ITEMS.map((item) => {
         const seleccionada = item.id === activa
         return (
