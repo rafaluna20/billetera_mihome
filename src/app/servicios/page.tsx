@@ -1,11 +1,13 @@
-import { ExternalLink, Droplets, TrendingUp, UserCheck } from "lucide-react"
+import { ExternalLink, Droplets, Gift, QrCode, Store, TrendingUp, UserCheck } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
 import { MarcoApp } from "@/components/MarcoApp"
 import { EntrarAplicacion } from "@/components/servicios/EntrarAplicacion"
 import { RecibosPorPagar } from "@/components/servicios/RecibosPorPagar"
+import { misComercios, resumenBeneficios } from "@/lib/actions/comercios"
 import { obtenerRecibos } from "@/lib/actions/servicios"
+import { formatearDinero } from "@/lib/inversiones"
 import type { PlataformaCobros } from "@/lib/servicios"
 
 export const metadata = { title: "Servicios · MiHome Wallet" }
@@ -35,7 +37,7 @@ function Tarjeta({ titulo, detalle, insignia, children, href, externo }: {
 }
 
 export default async function ServiciosPage() {
-  const r = await obtenerRecibos()
+  const [r, beneficios, comercios] = await Promise.all([obtenerRecibos(), resumenBeneficios(), misComercios()])
   if (r.estado === "sesion") redirect("/salir")
 
   const plataformas: PlataformaCobros[] = r.estado === "ok" ? r.plataformas : []
@@ -53,6 +55,20 @@ export default async function ServiciosPage() {
           <Tarjeta titulo="Luz y agua" detalle={pendientes ? `${pendientes} por pagar` : "Tus recibos"} insignia={pendientes} href="#recibos">
             <Droplets size={22} aria-hidden />
           </Tarjeta>
+          <Tarjeta titulo="Pagar con QR" detalle="Bodega y restaurante" href="/pagar">
+            <QrCode size={22} aria-hidden />
+          </Tarjeta>
+          <Tarjeta
+            titulo="Beneficios" href="/beneficios"
+            detalle={beneficios.estado === "ok" ? `Tienes ${formatearDinero(beneficios.resumen.saldo, "PEN")}` : "Tus bonos"}
+          >
+            <Gift size={22} aria-hidden />
+          </Tarjeta>
+          {comercios.length > 0 && (
+            <Tarjeta titulo="Mi comercio" detalle="Cobros recibidos y QR" href="/comercio">
+              <Store size={22} aria-hidden />
+            </Tarjeta>
+          )}
           <Tarjeta titulo="Inversiones" detalle="Tu patrimonio" href="/inversiones">
             <TrendingUp size={22} aria-hidden />
           </Tarjeta>

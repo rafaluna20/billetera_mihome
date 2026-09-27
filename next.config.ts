@@ -38,7 +38,7 @@ const nextConfig: NextConfig = {
       },
       {
         // Nunca se guarda en caché de red lo que muestra saldos o datos de la persona.
-        source: "/(home|yapear|depositar|inversiones|servicios|salir)(.*)",
+        source: "/(home|yapear|depositar|inversiones|servicios|pagar|comercio|beneficios|salir)(.*)",
         headers: [{ key: "Cache-Control", value: "no-store" }],
       },
     ];

@@ -235,6 +235,11 @@ export default function YapearPage() {
   const handleQRScan = async (raw: string) => {
     // El QR lo puede fabricar cualquiera: solo se toma el número de cuenta, y el nombre que se muestra
     // es el que devuelve el banco para esa cuenta (un QR falso no puede hacerse pasar por otra persona).
+    // QR de un comercio (bodega, restaurante): se paga en su propia pantalla.
+    if (raw.startsWith("MIHOME1|") && raw.length <= 120) {
+      router.push(`/pagar?qr=${encodeURIComponent(raw)}`)
+      return
+    }
     let cuenta = ""
     try {
       const data = raw.length <= 1000 ? JSON.parse(raw) : null
