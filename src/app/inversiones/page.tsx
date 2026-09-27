@@ -4,9 +4,12 @@ import { redirect } from "next/navigation"
 
 import { ContratosTabs } from "@/components/inversiones/ContratosTabs"
 import { GraficoEvolucion } from "@/components/inversiones/GraficoEvolucion"
+import { PlataformasSelector } from "@/components/inversiones/PlataformasSelector"
 import { MarcoApp } from "@/components/MarcoApp"
 import { obtenerInversiones } from "@/lib/actions/inversiones"
-import { conSigno, formatearDinero, tonoDe, type PlataformaInversion, type ResumenInversiones } from "@/lib/inversiones"
+import {
+  calcularPatrimonioTotal, conSigno, formatearDinero, tonoDe, type PlataformaInversion, type ResumenInversiones,
+} from "@/lib/inversiones"
 
 export const metadata = { title: "Inversiones · MiHome Wallet" }
 
@@ -23,14 +26,28 @@ function Tarjeta({ etiqueta, valor, clase }: { etiqueta: string; valor: string; 
   )
 }
 
-function Resumen({ p, r }: { p: PlataformaInversion; r: ResumenInversiones }) {
+/** Cuando hay más de una plataforma respondiendo, el total aparece arriba de todo (no cambia al cambiar de pestaña). */
+function TotalPatrimonio({ plataformas }: { plataformas: PlataformaInversion[] }) {
+  const total = calcularPatrimonioTotal(plataformas)
+  if (total.porMoneda.length === 0) return null
+  return (
+    <div className="relative z-10 px-6 pt-6 text-center">
+      <p className="text-[12px] text-white/70">Patrimonio total en {total.porMoneda.reduce((s, f) => s + f.plataformas, 0)} plataformas</p>
+      {total.porMoneda.map((f) => (
+        <p key={f.moneda} className="mt-1 text-[34px] font-bold leading-tight text-white">{formatearDinero(f.patrimonio, f.moneda)}</p>
+      ))}
+    </div>
+  )
+}
+
+function Resumen({ p, r, conTotal }: { p: PlataformaInversion; r: ResumenInversiones; conTotal: boolean }) {
   const dinero = (n: number) => formatearDinero(n, r.moneda)
   const tonoMes = tonoDe(r.utilidad_mes)
   return (
     <>
       <div className="relative z-10 px-6 pt-2 text-center">
-        <p className="text-[12px] text-white/70">Total activo + saldo libre en {p.name}</p>
-        <p className="mt-1 text-[40px] font-bold leading-tight text-white" aria-label={`Patrimonio ${dinero(r.patrimonio)}`}>{dinero(r.patrimonio)}</p>
+        <p className="text-[12px] text-white/70">{conTotal ? `En ${p.name}` : `Total activo + saldo libre en ${p.name}`}</p>
+        <p className={`mt-1 font-bold leading-tight text-white ${conTotal ? "text-[26px]" : "text-[40px]"}`} aria-label={`Patrimonio ${dinero(r.patrimonio)}`}>{dinero(r.patrimonio)}</p>
         <p className={`mx-auto mt-2 inline-block rounded-full border px-4 py-1.5 text-[12px] font-semibold ${tonoMes === "positivo" ? "border-[#00e5d8]/40 bg-[#00e5d8]/10 text-[#00e5d8]" : "border-white/15 bg-white/10 text-white/80"}`}>
           {tonoMes === "positivo" ? `${conSigno(r.utilidad_mes, r.moneda)} de utilidad este mes` : "Sin utilidad recibida este mes"}
         </p>
@@ -104,17 +121,29 @@ export default async function InversionesPage() {
     )
   }
 
-  // Una plataforma por pantalla (hoy solo hay una): si hubiera varias, se muestra la primera disponible.
-  const p = r.plataformas.find((x) => x.estado === "ok") ?? r.plataformas[0]
+  const okCount = r.plataformas.filter((x) => x.estado === "ok").length
+  const conTotal = okCount > 1
+  // La que abre por defecto es la primera que sí responde; si ninguna responde, la primera de la lista.
+  const indiceInicial = Math.max(r.plataformas.findIndex((x) => x.estado === "ok"), 0)
+
+  const paneles = r.plataformas.map((p) =>
+    p.estado === "ok" ? (
+      <Resumen key={p.code} p={p} r={p.resumen} conTotal={conTotal} />
+    ) : p.estado === "no_vinculado" ? (
+      <Aviso key={p.code} titulo={`Vincula tu cuenta con ${p.name}`} texto={`Tu billetera todavía no está vinculada a tu usuario en ${p.name}. Pídele a Akallpa que la vincule para ver tus inversiones aquí.`} p={p} />
+    ) : (
+      <Aviso key={p.code} titulo={`${p.name} no responde`} texto="No pudimos leer tus inversiones en este momento. Inténtalo de nuevo en unos minutos." p={p} />
+    )
+  )
+
   return (
     <Marco>
-      {p.estado === "ok" ? (
-        <Resumen p={p} r={p.resumen} />
-      ) : p.estado === "no_vinculado" ? (
-        <Aviso titulo={`Vincula tu cuenta con ${p.name}`} texto={`Tu billetera todavía no está vinculada a tu usuario en ${p.name}. Pídele a Akallpa que la vincule para ver tus inversiones aquí.`} p={p} />
-      ) : (
-        <Aviso titulo={`${p.name} no responde`} texto="No pudimos leer tus inversiones en este momento. Inténtalo de nuevo en unos minutos." p={p} />
-      )}
+      {conTotal && <TotalPatrimonio plataformas={r.plataformas} />}
+      <PlataformasSelector
+        opciones={r.plataformas.map((p) => ({ code: p.code, name: p.name, disponible: p.estado === "ok" }))}
+        paneles={paneles}
+        inicial={indiceInicial}
+      />
     </Marco>
   )
 }
