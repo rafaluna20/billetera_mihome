@@ -1,19 +1,18 @@
 import { LayoutGrid, LayoutList, TrendingUp, User } from "lucide-react"
 import Link from "next/link"
 
-export type PestanaActiva = "inicio" | "servicios" | "inversiones"
+export type PestanaActiva = "inicio" | "servicios" | "inversiones" | "perfil"
 
 const ITEMS = [
   { id: "inicio", icon: LayoutGrid, label: "Inicio", href: "/home" },
   { id: "servicios", icon: LayoutList, label: "Servicios", href: "/servicios" },
   { id: "inversiones", icon: TrendingUp, label: "Inversiones", href: "/inversiones" },
-  { id: "perfil", icon: User, label: "Perfil", href: "/home" },
+  { id: "perfil", icon: User, label: "Perfil", href: "/perfil" },
 ] as const
 
 /**
  * Barra inferior de la app. Lleva z-40 para quedar SIEMPRE por encima de las hojas de contenido (z-20) de cada pantalla; sin
  * eso las hojas la tapaban y solo se veía en Inicio. Las ventanas de confirmación de pago (z-50) sí la cubren, a propósito.
- * «Perfil» todavía no tiene pantalla propia y lleva al inicio.
  */
 export function BottomNav({ activa }: { activa: PestanaActiva }) {
   return (

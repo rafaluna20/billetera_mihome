@@ -17,13 +17,13 @@ describe("barra inferior", () => {
 
   test("lleva a las cuatro secciones y marca la actual", () => {
     const html = renderToStaticMarkup(createElement(BottomNav, { activa: "inversiones" }))
-    for (const destino of ["/home", "/servicios", "/inversiones"]) expect(html).toContain(`href="${destino}"`)
+    for (const destino of ["/home", "/servicios", "/inversiones", "/perfil"]) expect(html).toContain(`href="${destino}"`)
     expect(html.match(/aria-current="page"/g)).toHaveLength(1)
     expect(html).toMatch(/Inversiones/)
   })
 
   test("las pantallas principales usan el marco con la barra; los flujos de dinero no", () => {
-    for (const pantalla of ["app/servicios/page.tsx", "app/inversiones/page.tsx", "app/beneficios/page.tsx", "app/comercio/page.tsx", "app/recibir/page.tsx", "app/pagar/page.tsx"]) {
+    for (const pantalla of ["app/servicios/page.tsx", "app/inversiones/page.tsx", "app/beneficios/page.tsx", "app/comercio/page.tsx", "app/recibir/page.tsx", "app/pagar/page.tsx", "app/perfil/page.tsx"]) {
       expect(leer(pantalla), pantalla).toContain("MarcoApp")
     }
     expect(leer("app/home/page.tsx")).toContain("BottomNav")
