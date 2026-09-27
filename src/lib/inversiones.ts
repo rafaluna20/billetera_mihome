@@ -12,7 +12,8 @@ export interface PuntoEvolucion {
 }
 
 export interface ResumenContrato {
-  proyecto_id: number
+  /** Odoo usa enteros; una plataforma con Firestore (Inversiones Pro) usa el id del documento. Solo se usa como key. */
+  proyecto_id: number | string
   nombre: string
   estado: string
   en_curso: boolean
@@ -129,4 +130,37 @@ export function geometriaGrafico(puntos: PuntoEvolucion[], ancho = 320, alto = 1
 /** Porcentaje 0–100 acotado, para barras de avance. */
 export function acotar(valor: number): number {
   return Number.isFinite(valor) ? Math.min(100, Math.max(0, valor)) : 0
+}
+
+export interface PatrimonioTotal {
+  /** Una entrada por moneda (normalmente una sola: PEN). Sumar monedas distintas sin convertir sería inventar una cifra. */
+  porMoneda: { moneda: string; patrimonio: number; saldoLibre: number; capitalEnCurso: number; utilidadMes: number; plataformas: number }[]
+}
+
+/**
+ * Patrimonio TOTAL a través de todas las plataformas conectadas y respondiendo ("ok"), agrupado por moneda: sumar
+ * soles con dólares daría un número falso, así que cada moneda se sostiene por su cuenta en vez de forzar un total
+ * único. En la práctica hoy todas las plataformas son PEN, así que casi siempre hay una sola fila.
+ */
+export function calcularPatrimonioTotal(plataformas: PlataformaInversion[]): PatrimonioTotal {
+  const porMoneda = new Map<string, { moneda: string; patrimonio: number; saldoLibre: number; capitalEnCurso: number; utilidadMes: number; plataformas: number }>()
+  for (const p of plataformas) {
+    if (p.estado !== "ok") continue
+    const r = p.resumen
+    const fila = porMoneda.get(r.moneda) ?? { moneda: r.moneda, patrimonio: 0, saldoLibre: 0, capitalEnCurso: 0, utilidadMes: 0, plataformas: 0 }
+    fila.patrimonio += r.patrimonio
+    fila.saldoLibre += r.saldo_libre
+    fila.capitalEnCurso += r.capital_en_curso
+    fila.utilidadMes += r.utilidad_mes
+    fila.plataformas += 1
+    porMoneda.set(r.moneda, fila)
+  }
+  // Redondeo al final (no en cada suma parcial), para que no se acumule el ruido de céntimos de varias plataformas.
+  const redondear = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+  return {
+    porMoneda: [...porMoneda.values()].map((f) => ({
+      ...f, patrimonio: redondear(f.patrimonio), saldoLibre: redondear(f.saldoLibre),
+      capitalEnCurso: redondear(f.capitalEnCurso), utilidadMes: redondear(f.utilidadMes),
+    })),
+  }
 }

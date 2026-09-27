@@ -13,8 +13,8 @@ vi.mock("next/navigation", () => ({ redirect: () => undefined }))
 
 import { obtenerInversiones } from "@/lib/actions/inversiones"
 import {
-  acotar, conSigno, filtrarContratos, formatearDinero, geometriaGrafico, tonoDe,
-  type PuntoEvolucion, type ResumenContrato,
+  acotar, calcularPatrimonioTotal, conSigno, filtrarContratos, formatearDinero, geometriaGrafico, tonoDe,
+  type PlataformaInversion, type PuntoEvolucion, type ResumenContrato,
 } from "@/lib/inversiones"
 import { proxy } from "@/proxy"
 import { NextRequest } from "next/server"
@@ -126,5 +126,39 @@ describe("proxy", () => {
     expect(sin.status).toBe(307)
     const con = proxy(new NextRequest("http://localhost/inversiones", { headers: { cookie: "wallet_token=abc" } }))
     expect(con.headers.get("location")).toBeNull()
+  })
+})
+
+describe("calcularPatrimonioTotal", () => {
+  const resumen = (patrimonio: number, moneda = "PEN") => ({
+    moneda, patrimonio, saldo_libre: patrimonio / 2, capital_en_curso: patrimonio / 2, utilidad_mes: 5,
+    utilidad_recibida: 0, resultado_realizado: 0, proyectos_activos: 1, proyectos_historicos: 1, evolucion: [], contratos: [],
+  })
+  const ok = (code: string, patrimonio: number, moneda = "PEN"): PlataformaInversion =>
+    ({ code, name: code, app_url: null, estado: "ok", resumen: resumen(patrimonio, moneda) })
+  const noOk = (code: string, estado: "no_vinculado" | "no_disponible"): PlataformaInversion =>
+    ({ code, name: code, app_url: null, estado })
+
+  test("suma solo las plataformas que responden ('ok'), ignorando las que no", () => {
+    const total = calcularPatrimonioTotal([ok("a", 100), ok("b", 50), noOk("c", "no_vinculado"), noOk("d", "no_disponible")])
+    expect(total.porMoneda).toEqual([{ moneda: "PEN", patrimonio: 150, saldoLibre: 75, capitalEnCurso: 75, utilidadMes: 10, plataformas: 2 }])
+  })
+
+  test("monedas distintas NO se mezclan: una fila por moneda", () => {
+    const total = calcularPatrimonioTotal([ok("a", 100, "PEN"), ok("b", 30, "USD")])
+    expect(total.porMoneda).toEqual([
+      { moneda: "PEN", patrimonio: 100, saldoLibre: 50, capitalEnCurso: 50, utilidadMes: 5, plataformas: 1 },
+      { moneda: "USD", patrimonio: 30, saldoLibre: 15, capitalEnCurso: 15, utilidadMes: 5, plataformas: 1 },
+    ])
+  })
+
+  test("sin ninguna plataforma 'ok', el resultado es una lista vacía", () => {
+    expect(calcularPatrimonioTotal([noOk("a", "no_vinculado"), noOk("b", "no_disponible")]).porMoneda).toEqual([])
+    expect(calcularPatrimonioTotal([]).porMoneda).toEqual([])
+  })
+
+  test("el redondeo se hace al final, no se acumula ruido de céntimos", () => {
+    const total = calcularPatrimonioTotal([ok("a", 0.1), ok("b", 0.2)])
+    expect(total.porMoneda[0].patrimonio).toBe(0.3)
   })
 })
