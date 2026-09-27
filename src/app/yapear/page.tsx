@@ -3,20 +3,15 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
-  X, Smartphone, ChevronRight, ArrowLeft,
-  Loader2, AlertCircle, User, QrCode,
-  Mail, CreditCard, Share2, Calendar, Clock, MessageSquare
+  X, ArrowLeft, Loader2, AlertCircle, Share2, Calendar, Clock, MessageSquare, TriangleAlert
 } from "lucide-react"
-import type { LucideIcon } from "lucide-react"
-import { searchWalletUsers, transferFunds, type ResultadoTransferencia, type TipoBusqueda, type WalletContact } from "@/lib/actions/transfer"
+import { contactosRecientes, searchWalletUsers, transferFunds, type ResultadoTransferencia, type WalletContact } from "@/lib/actions/transfer"
+import { BuscadorDestinatario } from "@/components/yapear/BuscadorDestinatario"
 import QRScanner from "@/components/QRScanner"
 import { obtenerLimites, type LimitesBilletera } from "@/lib/actions/wallet"
 
 type Step =
   | "menu"
-  | "por_numero"
-  | "por_correo"
-  | "por_cuenta"
   | "qr"
   | "amount"
   | "confirm"
@@ -37,172 +32,8 @@ const avatarColors = [
 function colorForName(name: string) {
   return avatarColors[name.charCodeAt(0) % avatarColors.length]
 }
-const MIN_CONSULTA = 3
 function getInitials(name: string) {
   return name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
-}
-
-// ─── Reutilizable: Pantalla de input + lista de sugerencias ──────────────────
-function SearchInputScreen({
-  title,
-  placeholder,
-  inputType,
-  icon: Icon,
-  iconColor,
-  onSelect,
-  onBack,
-  suggestionsKey,
-}: {
-  title: string
-  placeholder: string
-  inputType: string
-  icon: LucideIcon
-  iconColor: string
-  onSelect: (r: Recipient) => void
-  onBack: () => void
-  suggestionsKey: "phone" | "email" | "account_number"
-}) {
-  const [query, setQuery] = useState("")
-  const [contacts, setContacts] = useState<WalletContact[]>([])
-  const [loading, setLoading] = useState(false)
-  const [notice, setNotice] = useState("")
-  const tipoBusqueda: TipoBusqueda = suggestionsKey === "account_number" ? "account" : suggestionsKey
-  const consultaLista = query.trim().length >= MIN_CONSULTA
-
-  useEffect(() => {
-    if (!consultaLista) return
-    let vigente = true
-    const temporizador = setTimeout(async () => {
-      setLoading(true)
-      const r = await searchWalletUsers(query, tipoBusqueda)
-      if (!vigente) return // llegó tarde: ya se escribió otra cosa
-      setContacts(r)
-      setLoading(false)
-    }, 350)
-    return () => {
-      vigente = false
-      clearTimeout(temporizador)
-    }
-  }, [query, tipoBusqueda, consultaLista])
-  const resultados = consultaLista ? contacts : []
-
-  // Lo que se escribe a mano se verifica con el banco: solo se sigue si existe una billetera con ese dato,
-  // y el nombre que se muestra es el del banco, no lo que escribió quien envía.
-  const confirmManual = async () => {
-    const texto = query.trim()
-    if (texto.length < MIN_CONSULTA) return
-    setNotice("")
-    setLoading(true)
-    const r = await searchWalletUsers(texto, tipoBusqueda)
-    setLoading(false)
-    if (r.length === 1) {
-      onSelect(r[0])
-      return
-    }
-    setContacts(r)
-    setNotice(r.length === 0 ? "No encontramos una billetera con ese dato." : "Hay varios resultados: elige uno de la lista.")
-  }
-
-  return (
-    <>
-      {/* Header */}
-      <div className="flex-shrink-0 px-5 pt-12 pb-4">
-        <div className="flex items-center gap-3 mb-5">
-          <button onClick={onBack}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
-            <ArrowLeft size={20} className="text-gray-700" />
-          </button>
-          <h1 className="text-gray-900 font-bold text-[20px]">{title}</h1>
-        </div>
-
-        {/* Input */}
-        <div className={`flex items-center gap-3 border-2 border-[#681984] bg-[#faf8fc] rounded-2xl px-4 py-3.5`}>
-          <Icon size={20} className={iconColor} />
-          <input
-            autoFocus
-            type={inputType}
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && confirmManual()}
-            placeholder={placeholder}
-            className="flex-1 bg-transparent text-[15px] text-gray-800 placeholder-gray-300 focus:outline-none"
-          />
-          {query && (
-            <button onClick={() => setQuery("")}>
-              <X size={15} className="text-gray-400" />
-            </button>
-          )}
-        </div>
-
-        {/* Confirm manual button */}
-        {consultaLista && (
-          <button
-            onClick={confirmManual}
-            disabled={loading}
-            className="mt-3 w-full flex items-center justify-between bg-[#f5f0fa] border border-[#e8dff0] rounded-2xl px-4 py-3 hover:bg-[#ede6f6] transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-[#681984] rounded-xl flex items-center justify-center">
-                <Icon size={17} className="text-white" />
-              </div>
-              <div className="text-left">
-                <p className="text-[#4a1862] font-bold text-[14px]">{query}</p>
-                <p className="text-gray-400 text-[11px]">Usar este {suggestionsKey === "phone" ? "número" : suggestionsKey === "email" ? "correo" : "número de cuenta"}</p>
-              </div>
-            </div>
-            <ChevronRight size={18} className="text-[#681984]" />
-          </button>
-        )}
-      </div>
-
-      {/* Contact list */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="px-5 py-3">
-          <p className="text-gray-500 text-[12px] font-semibold uppercase tracking-wider">
-            {consultaLista ? "Resultados" : "Buscar una billetera"}
-          </p>
-        </div>
-
-        {loading && consultaLista ? (
-          <div className="flex justify-center py-8">
-            <Loader2 size={22} className="text-[#681984] animate-spin" />
-          </div>
-        ) : resultados.length === 0 ? (
-          <div className="flex flex-col items-center py-12 px-6 text-center">
-            <User size={38} className="text-gray-200 mb-3" />
-            <p className="text-gray-400 text-[14px]">
-              {notice || (consultaLista ? "No se encontraron resultados" : `Escribe al menos ${MIN_CONSULTA} caracteres para buscar`)}
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-50 px-3">
-            {resultados.map((c, i) => {
-              const displayValue =
-                suggestionsKey === "phone" ? c.phone :
-                suggestionsKey === "email" ? c.email :
-                c.account_number
-              if (!displayValue) return null
-              return (
-                <button
-                  key={i}
-                  onClick={() => onSelect(c)}
-                  className="w-full flex items-center gap-4 px-3 py-3.5 hover:bg-gray-50 rounded-2xl transition-colors text-left"
-                >
-                  <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${colorForName(c.name)}`}>
-                    <span className="text-white font-bold text-[13px]">{getInitials(c.name)}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-gray-900 font-bold text-[15px] leading-tight">{c.name}</p>
-                    <p className="text-gray-400 text-[13px] mt-0.5 truncate">{displayValue}</p>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
-    </>
-  )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -226,6 +57,15 @@ export default function YapearPage() {
   useEffect(() => {
     obtenerLimites().then(setLimites)
   }, [])
+  // A quién le enviaste antes: se ofrece arriba y sirve para avisar cuando es la PRIMERA vez con alguien.
+  const [recientes, setRecientes] = useState<WalletContact[]>([])
+  const [recientesListos, setRecientesListos] = useState(false)
+  useEffect(() => {
+    contactosRecientes().then((r) => { setRecientes(r); setRecientesListos(true) })
+  }, [])
+  const esContactoNuevo = Boolean(
+    recipient?.account_number && recientesListos && !recientes.some((c) => c.account_number === recipient.account_number)
+  )
 
   const selectRecipient = (r: Recipient) => {
     setRecipient(r)
@@ -322,45 +162,6 @@ export default function YapearPage() {
     }
   }
 
-  const menuOptions = [
-    {
-      id: "por_numero" as Step,
-      label: "Por número de celular",
-      sub: "Ingresa el número del destinatario",
-      icon: Smartphone,
-      bg: "bg-[#f3e8ff]",
-      iconColor: "text-[#681984]",
-      accent: "#681984",
-    },
-    {
-      id: "por_correo" as Step,
-      label: "Por correo electrónico",
-      sub: "Busca por el email registrado",
-      icon: Mail,
-      bg: "bg-[#e8f5f5]",
-      iconColor: "text-[#00b5ad]",
-      accent: "#00b5ad",
-    },
-    {
-      id: "por_cuenta" as Step,
-      label: "Por número de cuenta",
-      sub: "Ingresa el código WAL del usuario",
-      icon: CreditCard,
-      bg: "bg-[#fff8e8]",
-      iconColor: "text-[#f59e0b]",
-      accent: "#f59e0b",
-    },
-    {
-      id: "qr" as Step,
-      label: "Escanear código QR",
-      sub: "Apunta al QR de la pantalla de inicio",
-      icon: QrCode,
-      bg: "bg-[#e8eeff]",
-      iconColor: "text-[#4f6ef7]",
-      accent: "#4f6ef7",
-    },
-  ]
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-900 sm:p-4">
       <div className="w-full h-[100dvh] sm:h-[844px] max-w-[390px] bg-white sm:rounded-[3rem] overflow-hidden relative flex flex-col font-sans border-4 border-slate-800 sm:border-[#333] shadow-[0_0_60px_rgba(0,0,0,0.5)]">
@@ -369,7 +170,7 @@ export default function YapearPage() {
         {step === "menu" && (
           <>
             {/* Top purple header */}
-            <div className="flex-shrink-0 bg-[#681984] px-6 pt-12 pb-8 relative overflow-hidden">
+            <div className="flex-shrink-0 bg-[#681984] px-6 pt-12 pb-6 relative overflow-hidden">
               <div className="absolute top-[-40px] right-[-40px] w-40 h-40 bg-white/5 rounded-full" />
               <div className="absolute bottom-[-20px] left-[-20px] w-28 h-28 bg-white/5 rounded-full" />
               <div className="relative flex items-center gap-3 mb-4">
@@ -379,94 +180,11 @@ export default function YapearPage() {
                 </button>
                 <h1 className="text-white font-bold text-[22px]">Yapear</h1>
               </div>
-              <p className="text-white/60 text-[14px] ml-12">¿Cómo quieres enviar dinero?</p>
+              <p className="text-white/60 text-[14px] ml-12">¿A quién le envías?</p>
             </div>
 
-            {/* Options list */}
-            <div className="flex-1 overflow-y-auto px-5 py-5 space-y-3">
-              {menuOptions.map((opt, i) => (
-                <button
-                  key={opt.id}
-                  onClick={() => setStep(opt.id)}
-                  className="w-full flex items-center gap-4 bg-white border-2 border-gray-100 hover:border-gray-200 hover:bg-gray-50 rounded-3xl p-4 transition-all active:scale-[0.98] group"
-                >
-                  {/* Number badge */}
-                  <div className="relative">
-                    <div className={`w-14 h-14 ${opt.bg} rounded-2xl flex items-center justify-center flex-shrink-0`}>
-                      <opt.icon size={26} className={opt.iconColor} />
-                    </div>
-                    <div
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-                      style={{ backgroundColor: opt.accent }}
-                    >
-                      {i + 1}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 text-left">
-                    <p className="text-gray-900 font-bold text-[15px] leading-tight">{opt.label}</p>
-                    <p className="text-gray-400 text-[12px] mt-0.5">{opt.sub}</p>
-                  </div>
-
-                  <ChevronRight
-                    size={20}
-                    className="text-gray-300 group-hover:text-gray-500 transition-colors flex-shrink-0"
-                    style={{ color: undefined }}
-                  />
-                </button>
-              ))}
-
-              {/* Info card */}
-              <div className="mt-2 bg-[#faf8fc] border border-[#f0eaf6] rounded-2xl p-4">
-                <p className="text-[#681984] font-semibold text-[13px] mb-1.5">💡 Sin comisión</p>
-                <p className="text-gray-400 text-[12px]">
-                  Todos los yapeos dentro de MiHome son gratuitos e instantáneos. El dinero llega al instante.
-                </p>
-              </div>
-            </div>
+            <BuscadorDestinatario recientes={recientes} onElegir={selectRecipient} onEscanear={() => setStep("qr")} />
           </>
-        )}
-
-        {/* ── POR NÚMERO ── */}
-        {step === "por_numero" && (
-          <SearchInputScreen
-            title="Por número de celular"
-            placeholder="9XX XXX XXX"
-            inputType="tel"
-            icon={Smartphone}
-            iconColor="text-[#681984]"
-            suggestionsKey="phone"
-            onSelect={selectRecipient}
-            onBack={() => setStep("menu")}
-          />
-        )}
-
-        {/* ── POR CORREO ── */}
-        {step === "por_correo" && (
-          <SearchInputScreen
-            title="Por correo electrónico"
-            placeholder="usuario@correo.com"
-            inputType="email"
-            icon={Mail}
-            iconColor="text-[#00b5ad]"
-            suggestionsKey="email"
-            onSelect={selectRecipient}
-            onBack={() => setStep("menu")}
-          />
-        )}
-
-        {/* ── POR CUENTA ── */}
-        {step === "por_cuenta" && (
-          <SearchInputScreen
-            title="Por número de cuenta"
-            placeholder="WAL00000001"
-            inputType="text"
-            icon={CreditCard}
-            iconColor="text-[#f59e0b]"
-            suggestionsKey="account_number"
-            onSelect={selectRecipient}
-            onBack={() => setStep("menu")}
-          />
         )}
 
         {/* ── QR SCANNER ── */}
@@ -510,9 +228,16 @@ export default function YapearPage() {
             {/* Content */}
             <div className="flex-1 flex flex-col px-5 pt-4">
               {/* Name */}
-              <h3 className="text-center text-[#681984] font-bold text-[22px] mb-6">
+              <h3 className="text-center text-[#681984] font-bold text-[22px] mb-1">
                 {recipient.name}*
               </h3>
+              {recipient.phone && <p className="text-center text-gray-400 text-[13px] mb-4">Celular {recipient.phone}</p>}
+              {esContactoNuevo && (
+                <div role="note" className="mx-auto mb-4 flex max-w-[320px] items-start gap-2 rounded-2xl bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+                  <TriangleAlert size={16} className="mt-0.5 shrink-0" aria-hidden />
+                  <span>Es la primera vez que le envías a esta persona. Confirma que el nombre y el celular son los de quien buscas.</span>
+                </div>
+              )}
 
               {/* Amount Display */}
               <div className="flex justify-center items-baseline gap-1 mb-3">

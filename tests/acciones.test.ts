@@ -201,3 +201,51 @@ describe("clave (PIN) y depósito", () => {
     expect(cuerpoEnviado()).toMatchObject({ platform: "inversiones", amount: 50.1, idempotency_key: LLAVE })
   })
 })
+
+describe("buscar a quién enviar (un solo cuadro) y recientes", () => {
+  test("manda siempre «auto»: el banco decide si es celular, nombre o cuenta", async () => {
+    const { buscarDestinatarios } = await import("@/lib/actions/transfer")
+    fetchSimulado.mockResolvedValue(respuestaOdoo({ success: true, users: [{ name: "Beto C. R. S.", phone: "*** *** 333", account_number: "WAL00000002", masked: true }] }))
+    const r = await buscarDestinatarios("  941 222 333 ")
+    expect(cuerpoEnviado()).toEqual({ query: "941 222 333", search_type: "auto" })
+    expect(r.contactos).toHaveLength(1)
+    expect(r.contactos[0]).toMatchObject({ name: "Beto C. R. S.", initials: "BC" })
+    expect(r.aviso).toBeUndefined()
+  })
+
+  test("con menos de 3 caracteres ni se pregunta al banco", async () => {
+    const { buscarDestinatarios } = await import("@/lib/actions/transfer")
+    expect(await buscarDestinatarios("be")).toEqual({ contactos: [] })
+    expect(await buscarDestinatarios("   ")).toEqual({ contactos: [] })
+    expect(fetchSimulado).not.toHaveBeenCalled()
+  })
+
+  test("celular incompleto trae el aviso en palabras de persona; la red caída también avisa", async () => {
+    const { buscarDestinatarios } = await import("@/lib/actions/transfer")
+    fetchSimulado.mockResolvedValueOnce(respuestaOdoo({ success: false, code: "telefono_incompleto", error: "x" }))
+    expect(await buscarDestinatarios("941222")).toEqual({ contactos: [], aviso: "Escribe el número de celular completo (9 dígitos)." })
+    fetchSimulado.mockRejectedValueOnce(new Error("caída"))
+    expect((await buscarDestinatarios("Beto")).aviso).toMatch(/conexión/i)
+  })
+
+  test("sin sesión no se busca", async () => {
+    const { buscarDestinatarios, contactosRecientes } = await import("@/lib/actions/transfer")
+    cookiesSimuladas.clear()
+    expect(await buscarDestinatarios("Beto")).toEqual({ contactos: [] })
+    expect(await contactosRecientes()).toEqual([])
+    expect(fetchSimulado).not.toHaveBeenCalled()
+  })
+
+  test("recientes: se piden con el token (la cuenta sale de la sesión) y se vuelven a la lista vacía si falla", async () => {
+    const { contactosRecientes } = await import("@/lib/actions/transfer")
+    fetchSimulado.mockResolvedValueOnce(respuestaOdoo({ success: true, contacts: [{ name: "Carla M. R.", phone: "*** *** 222", account_number: "WAL00000003", last_at: "2026-09-27T10:00:00Z" }] }))
+    const r = await contactosRecientes()
+    expect(r[0]).toMatchObject({ account_number: "WAL00000003", initials: "CM" })
+    expect(cuerpoEnviado()).toEqual({})
+    expect(fetchSimulado.mock.calls[0][1].headers.Authorization).toBe("Bearer token-de-prueba")
+    fetchSimulado.mockResolvedValueOnce(respuestaOdoo({ success: false }))
+    expect(await contactosRecientes()).toEqual([])
+    fetchSimulado.mockRejectedValueOnce(new Error("x"))
+    expect(await contactosRecientes()).toEqual([])
+  })
+})
